@@ -6,6 +6,7 @@ import {
   ChartBarIcon,
   ClockIcon,
   DocumentTextIcon,
+  DocumentArrowDownIcon,
   BuildingOfficeIcon,
   CakeIcon,
   TagIcon,
@@ -31,7 +32,9 @@ import {
   ArrowPathIcon,
   EllipsisHorizontalIcon,
   PresentationChartLineIcon,
-  ListBulletIcon
+  ListBulletIcon,
+  EyeIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline'
 import { 
   CheckCircleIcon as CheckCircleIconSolid,
@@ -40,11 +43,15 @@ import {
 } from '@heroicons/react/24/solid'
 
 // Import advanced components
-import { AdvancedMetrics } from '../src/components/AdvancedMetrics'
+import { EnterpriseAnalytics } from '../src/components/EnterpriseAnalytics'
+import { RealTimeAnalytics } from '../src/components/RealTimeAnalytics'
+import { CacheManager } from '../src/components/CacheManager'
 import { OrderManagement } from '../src/components/OrderManagement'
 import { NotificationCenter } from '../src/components/NotificationCenter'
-import { DataExport } from '../src/components/DataExport'
+import { EnterpriseDataExport } from '../src/components/EnterpriseDataExport'
 import { PerformanceMonitor } from '../src/components/PerformanceMonitor'
+import { OptimizedDataTable } from '../src/components/OptimizedDataTable'
+import { PremiumButton, ButtonGroup, ProfessionalCard } from '../src/components/PremiumButton'
 
 // Enhanced business intelligence data
 const mockRealtimeMetrics = {
@@ -131,10 +138,11 @@ export default function Dashboard() {
   const { language, setLanguage, t, isRTL } = useLanguage()
 
   const dashboardTabs = [
-    { id: 'overview', name: 'Overview', icon: ChartBarIcon },
-    { id: 'analytics', name: 'Analytics', icon: PresentationChartLineIcon },
-    { id: 'orders', name: 'Orders', icon: ListBulletIcon },
-    { id: 'operations', name: 'Operations', icon: BuildingOfficeIcon }
+    { id: 'overview', name: t('overview'), icon: ChartBarIcon },
+    { id: 'analytics', name: t('analytics'), icon: PresentationChartLineIcon },
+    { id: 'orders', name: t('orders'), icon: ListBulletIcon },
+    { id: 'operations', name: t('operations'), icon: BuildingOfficeIcon },
+    { id: 'settings', name: t('settings'), icon: Cog6ToothIcon }
   ]
 
   useEffect(() => {
@@ -272,8 +280,8 @@ export default function Dashboard() {
 
               {/* Header Controls */}
               <div className="flex items-center space-x-4">
-                {/* Data Export */}
-                <DataExport />
+                {/* Enterprise Data Export */}
+                <EnterpriseDataExport />
 
                 {/* System Status */}
                 <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
@@ -410,25 +418,22 @@ export default function Dashboard() {
           </section>
 
           {/* Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Management Modules */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="card">
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                    {t('management_sections')}
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    Access all business operations and management tools
-                  </p>
-                </div>
-
+            <div className="lg:col-span-2 space-y-4">
+              <ProfessionalCard
+                title={t('management_sections')}
+                description="Access all business operations and management tools"
+                actions={null}
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {businessModules.map((module) => (
-                    <div key={module.id} className="management-card">
+                    <div key={module.id} className="group p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all duration-200 bg-white">
                       <div className="flex items-center space-x-3 mb-3">
-                        <module.icon className="w-5 h-5 text-blue-600" />
-                        <h3 className="font-medium text-gray-900">{module.title}</h3>
+                        <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                          <module.icon className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 text-sm">{module.title}</h3>
                       </div>
                       
                       <div className="space-y-2">
@@ -436,73 +441,143 @@ export default function Dashboard() {
                           <Link 
                             key={item.href} 
                             href={item.href}
-                            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                            className="flex items-center p-2 rounded-md hover:bg-gray-50 transition-all duration-150 group/item"
                           >
-                            <item.icon className="w-4 h-4" />
-                            <span>{item.name}</span>
+                            <div className="flex items-center space-x-2">
+                              <item.icon className="w-3 h-3 text-gray-500 group-hover/item:text-blue-600 transition-colors" />
+                              <span className="text-xs text-gray-700 group-hover/item:text-gray-900 font-medium">
+                                {item.name}
+                              </span>
+                            </div>
                           </Link>
                         ))}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </ProfessionalCard>
 
               {/* Branch Performance */}
-              <div className="card">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900">Branch Performance</h2>
-                  <select className="input-field text-sm">
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                  </select>
-                </div>
-
-                <div className="overflow-x-auto">
+              <ProfessionalCard
+                title="Branch Performance Analytics"
+                description="Real-time performance metrics across all locations"
+                actions={
+                  <ButtonGroup align="right">
+                    <select className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="today">Today</option>
+                      <option value="week">This Week</option>
+                      <option value="month">This Month</option>
+                      <option value="quarter">This Quarter</option>
+                    </select>
+                    <PremiumButton 
+                      variant="outline" 
+                      size="sm"
+                      icon={<DocumentArrowDownIcon className="w-4 h-4" />}
+                    >
+                      Export
+                    </PremiumButton>
+                  </ButtonGroup>
+                }
+              >
+                <div className="overflow-hidden">
                   <table className="min-w-full">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-2 text-sm font-medium text-gray-500">Branch</th>
-                        <th className="text-right py-3 px-2 text-sm font-medium text-gray-500">Orders</th>
-                        <th className="text-right py-3 px-2 text-sm font-medium text-gray-500">Revenue</th>
-                        <th className="text-right py-3 px-2 text-sm font-medium text-gray-500">Staff</th>
-                        <th className="text-center py-3 px-2 text-sm font-medium text-gray-500">Status</th>
+                      <tr className="border-b-2 border-gray-100">
+                        <th className="text-left py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Branch Location
+                        </th>
+                        <th className="text-right py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Orders Today
+                        </th>
+                        <th className="text-right py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Revenue (AED)
+                        </th>
+                        <th className="text-right py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Staff Count
+                        </th>
+                        <th className="text-center py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Operational Status
+                        </th>
+                        <th className="text-right py-4 px-6 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-50">
                       {mockRealtimeMetrics.branches.map((branch) => (
-                        <tr key={branch.id} className="hover:bg-gray-50">
-                          <td className="py-3 px-2">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                              <span className="text-sm font-medium text-gray-900">{branch.name}</span>
+                        <tr key={branch.id} className="hover:bg-blue-50/30 transition-colors duration-150">
+                          <td className="py-4 px-6">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                              <div>
+                                <div className="text-sm font-semibold text-gray-900">{branch.name}</div>
+                                <div className="text-xs text-gray-500">ID: BR-{String(branch.id).padStart(3, '0')}</div>
+                              </div>
                             </div>
                           </td>
-                          <td className="py-3 px-2 text-right text-sm text-gray-900 ltr-numbers">
-                            {branch.orders}
+                          <td className="py-4 px-6 text-right">
+                            <div className="text-sm font-bold text-gray-900 ltr-numbers">{branch.orders}</div>
+                            <div className="text-xs text-emerald-600 font-medium">+12% vs yesterday</div>
                           </td>
-                          <td className="py-3 px-2 text-right text-sm font-medium text-gray-900 ltr-numbers">
-                            {formatCurrency(branch.revenue)}
+                          <td className="py-4 px-6 text-right">
+                            <div className="text-sm font-bold text-gray-900 ltr-numbers">
+                              {formatCurrency(branch.revenue)}
+                            </div>
+                            <div className="text-xs text-emerald-600 font-medium">+8.5% growth</div>
                           </td>
-                          <td className="py-3 px-2 text-right text-sm text-gray-600 ltr-numbers">
-                            {branch.staff}
+                          <td className="py-4 px-6 text-right">
+                            <div className="text-sm font-medium text-gray-900 ltr-numbers">{branch.staff}</div>
+                            <div className="text-xs text-gray-500">on shift</div>
                           </td>
-                          <td className="py-3 px-2 text-center">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                              Active
+                          <td className="py-4 px-6 text-center">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></div>
+                              Operational
                             </span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <PremiumButton 
+                              variant="primary" 
+                              size="xs"
+                              icon={<Cog6ToothIcon className="w-3 h-3" />}
+                            >
+                              {t('manage')}
+                            </PremiumButton>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
+                
+                {/* Performance Summary Footer */}
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-blue-600 ltr-numbers">
+                        {mockRealtimeMetrics.branches.reduce((sum, b) => sum + b.orders, 0)}
+                      </div>
+                      <div className="text-xs font-medium text-blue-700">Total Orders</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-blue-600 ltr-numbers">
+                        {formatCurrency(mockRealtimeMetrics.branches.reduce((sum, b) => sum + b.revenue, 0))}
+                      </div>
+                      <div className="text-xs font-medium text-blue-700">Total Revenue</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-blue-600 ltr-numbers">
+                        {mockRealtimeMetrics.branches.reduce((sum, b) => sum + b.staff, 0)}
+                      </div>
+                      <div className="text-xs font-medium text-blue-700">Staff Members</div>
+                    </div>
+                  </div>
+                </div>
+              </ProfessionalCard>
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Live Orders */}
               <div className="card">
                 <div className="flex items-center justify-between mb-4">
@@ -602,7 +677,12 @@ export default function Dashboard() {
           )}
 
           {/* Analytics Tab */}
-          {activeTab === 'analytics' && <AdvancedMetrics />}
+          {activeTab === 'analytics' && (
+            <div className="space-y-8">
+              <EnterpriseAnalytics />
+              <RealTimeAnalytics />
+            </div>
+          )}
 
           {/* Orders Tab */}
           {activeTab === 'orders' && <OrderManagement />}
@@ -612,6 +692,9 @@ export default function Dashboard() {
             <div className="space-y-6">
               {/* Performance Monitoring */}
               <PerformanceMonitor />
+              
+              {/* Cache Management */}
+              <CacheManager />
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Branch Operations */}
@@ -713,6 +796,119 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-6">System Settings</h2>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* General Settings */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">General Configuration</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Restaurant Name</label>
+                        <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" defaultValue="Your Restaurant Chain" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Default Currency</label>
+                        <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                          <option value="AED">AED - UAE Dirham</option>
+                          <option value="USD">USD - US Dollar</option>
+                          <option value="EUR">EUR - Euro</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
+                        <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                          <option value="Asia/Dubai">Asia/Dubai (GMT+4)</option>
+                          <option value="America/New_York">America/New_York (EST)</option>
+                          <option value="Europe/London">Europe/London (GMT)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* System Preferences */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">System Preferences</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div>
+                          <h4 className="font-medium text-gray-900">Sound Notifications</h4>
+                          <p className="text-sm text-gray-600">Play sound for new orders</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div>
+                          <h4 className="font-medium text-gray-900">Auto Print Receipts</h4>
+                          <p className="text-sm text-gray-600">Automatically print order receipts</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div>
+                          <h4 className="font-medium text-gray-900">Real-time Sync</h4>
+                          <p className="text-sm text-gray-600">Sync data across all devices</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" defaultChecked />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Language Settings</h4>
+                      <p className="text-sm text-gray-600">Choose your preferred language and layout</p>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <PremiumButton
+                        variant={language === 'en' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => setLanguage('en')}
+                      >
+                        English
+                      </PremiumButton>
+                      <PremiumButton
+                        variant={language === 'ar' ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => setLanguage('ar')}
+                      >
+                        العربية
+                      </PremiumButton>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="flex justify-end space-x-3">
+                    <PremiumButton variant="outline" size="md">
+                      Reset to Defaults
+                    </PremiumButton>
+                    <PremiumButton variant="primary" size="md">
+                      Save Settings
+                    </PremiumButton>
+                  </div>
                 </div>
               </div>
             </div>

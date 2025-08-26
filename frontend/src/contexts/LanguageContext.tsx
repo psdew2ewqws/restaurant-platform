@@ -100,7 +100,13 @@ const translations = {
     'delivered': 'Delivered',
     
     // Common
-    'management_sections': 'Restaurant Management Sections'
+    'management_sections': 'Restaurant Management Sections',
+    'overview': 'Overview',
+    'analytics': 'Analytics',
+    'orders': 'Orders',
+    'operations': 'Operations',
+    'settings': 'Settings',
+    'manage': 'Manage'
   },
   ar: {
     // Header
@@ -192,7 +198,13 @@ const translations = {
     'delivered': 'تم التوصيل',
     
     // Common
-    'management_sections': 'أقسام إدارة المطعم'
+    'management_sections': 'أقسام إدارة المطعم',
+    'overview': 'نظرة عامة',
+    'analytics': 'التحليلات',
+    'orders': 'الطلبات',
+    'operations': 'العمليات',
+    'settings': 'الإعدادات',
+    'manage': 'إدارة'
   }
 }
 
