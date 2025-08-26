@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-vsliveshare.vsliveshare",
+    "eamodio.gitlens",
+    "ms-vscode.remote-repositories",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "ms-vscode.vscode-typescript-next",
+    "prisma.prisma",
+    "ms-vscode.vscode-json"
+  ]
+}
