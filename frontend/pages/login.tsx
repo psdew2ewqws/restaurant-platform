@@ -8,7 +8,7 @@ import Head from 'next/head'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(1, 'Password is required'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
@@ -28,20 +28,30 @@ export default function Login() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true)
     try {
-      // TODO: Replace with actual API call
-      console.log('Login attempt:', data)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const result = await response.json()
       
-      // For now, accept any email/password
-      if (data.email && data.password) {
+      if (response.ok && result.success) {
         toast.success('Login successful!')
+        
+        // Store user data in localStorage for quick access
+        if (result.user) {
+          localStorage.setItem('user', JSON.stringify(result.user))
+        }
+        
         router.push('/dashboard')
       } else {
-        toast.error('Invalid credentials')
+        toast.error(result.error || 'Login failed')
       }
     } catch (error) {
+      console.error('Login error:', error)
       toast.error('Login failed. Please try again.')
     } finally {
       setIsLoading(false)
@@ -117,7 +127,7 @@ export default function Login() {
             
             <div className="text-center">
               <p className="text-sm text-gray-600">
-                Demo credentials: any email/password
+                Demo: admin@restaurantplatform.com / admin123
               </p>
             </div>
           </form>

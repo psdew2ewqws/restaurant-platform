@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
+import toast from 'react-hot-toast'
 import { useLanguage } from '../src/contexts/LanguageContext'
 import { 
   ChartBarIcon,
@@ -104,6 +106,7 @@ const StatsCard = memo(({ title, value, trend, icon: Icon, className = "" }: {
 StatsCard.displayName = 'StatsCard'
 
 export default function Dashboard() {
+  const router = useRouter()
   const [currentTime, setCurrentTime] = useState(new Date(0)) // Initialize with epoch to avoid hydration mismatch
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
@@ -112,6 +115,7 @@ export default function Dashboard() {
   const [currency, setCurrency] = useState('JOD')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<number[]>([0])
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const { language, setLanguage, t } = useLanguage()
 
   // Optimize toggleGroup with useCallback
@@ -122,6 +126,53 @@ export default function Dashboard() {
         : [...prev, groupIndex]
     )
   }, [])
+
+  // Authentication check
+  useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) {
+      router.push('/login')
+      return
+    }
+    
+    try {
+      const user = JSON.parse(userStr)
+      
+      // Check if user has access to dashboard (management roles only)
+      const allowedRoles = ['super_admin', 'company_owner', 'branch_manager']
+      if (!allowedRoles.includes(user.role)) {
+        toast.error('Access denied. Dashboard is for management only.')
+        router.push('/login')
+        return
+      }
+      
+      setCurrentUser(user)
+    } catch (error) {
+      router.push('/login')
+    }
+  }, [router])
+
+  // Logout function
+  const handleLogout = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      })
+      
+      if (response.ok) {
+        localStorage.removeItem('user')
+        toast.success('Logged out successfully')
+        router.push('/login')
+      } else {
+        throw new Error('Logout failed')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force logout even if API call fails
+      localStorage.removeItem('user')
+      router.push('/login')
+    }
+  }, [router])
 
   // Live time updates - fixed hydration
   useEffect(() => {
@@ -322,7 +373,10 @@ export default function Dashboard() {
                   {formatTime(currentTime)}
                 </div>
 
-                <button className="btn-secondary">
+                <button 
+                  onClick={handleLogout}
+                  className="btn-secondary"
+                >
                   {t('logout')}
                 </button>
               </div>
