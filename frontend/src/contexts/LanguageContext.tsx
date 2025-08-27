@@ -105,7 +105,6 @@ const translations = {
     'analytics': 'Analytics',
     'orders': 'Orders',
     'operations': 'Operations',
-    'settings': 'Settings',
     'manage': 'Manage'
   },
   ar: {
@@ -203,7 +202,6 @@ const translations = {
     'analytics': 'التحليلات',
     'orders': 'الطلبات',
     'operations': 'العمليات',
-    'settings': 'الإعدادات',
     'manage': 'إدارة'
   }
 }
@@ -222,12 +220,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, isRTL }}>
       <div 
-        dir={isRTL ? 'rtl' : 'ltr'} 
-        className={`${isRTL ? 'font-arabic text-arabic' : 'font-sans'} transition-all duration-300 ease-in-out`}
+        dir="ltr"
+        className="font-sans transition-all duration-300 ease-in-out"
         style={{
-          fontFamily: isRTL ? "'Noto Sans Arabic', 'Inter', system-ui, sans-serif" : "'Inter', system-ui, sans-serif",
-          letterSpacing: isRTL ? '0.025em' : 'normal',
-          lineHeight: isRTL ? '1.7' : '1.6'
+          fontFamily: "'Inter', system-ui, sans-serif",
+          letterSpacing: 'normal',
+          lineHeight: '1.6'
         }}
       >
         {children}

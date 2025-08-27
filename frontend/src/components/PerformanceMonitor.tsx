@@ -27,41 +27,50 @@ interface SystemMetrics {
   lastUpdated: Date
 }
 
-// Mock real-time system metrics
-const generateMockMetrics = (): SystemMetrics => ({
-  cpu: {
-    usage: 25 + Math.random() * 50, // 25-75%
-    cores: 8,
-    temperature: 45 + Math.random() * 25 // 45-70°C
-  },
-  memory: {
-    used: 6.2 + Math.random() * 2, // 6.2-8.2 GB
-    total: 16,
-    percentage: 0
-  },
-  storage: {
-    used: 125 + Math.random() * 50, // 125-175 GB
-    total: 500,
-    percentage: 0
-  },
-  network: {
-    incoming: Math.random() * 100, // 0-100 Mbps
-    outgoing: Math.random() * 50,  // 0-50 Mbps
-    latency: 10 + Math.random() * 20 // 10-30ms
-  },
-  database: {
-    connections: 15 + Math.floor(Math.random() * 35), // 15-50
-    queryTime: 1.5 + Math.random() * 3, // 1.5-4.5ms
-    status: Math.random() > 0.8 ? 'warning' : 'healthy'
-  },
-  api: {
-    requestsPerMin: 150 + Math.floor(Math.random() * 300), // 150-450
-    errorRate: Math.random() * 2, // 0-2%
-    avgResponseTime: 50 + Math.random() * 100 // 50-150ms
-  },
-  uptime: 99.95 + Math.random() * 0.04, // 99.95-99.99%
-  lastUpdated: new Date()
-})
+// Generate deterministic mock metrics to prevent hydration issues
+let metricsCounter = 0
+const generateMockMetrics = (): SystemMetrics => {
+  const seed = metricsCounter++
+  const deterministicRandom = (index: number) => {
+    const x = Math.sin(seed + index) * 10000
+    return x - Math.floor(x)
+  }
+
+  return {
+    cpu: {
+      usage: 25 + deterministicRandom(1) * 50, // 25-75%
+      cores: 8,
+      temperature: 45 + deterministicRandom(2) * 25 // 45-70°C
+    },
+    memory: {
+      used: 6.2 + deterministicRandom(3) * 2, // 6.2-8.2 GB
+      total: 16,
+      percentage: 0
+    },
+    storage: {
+      used: 125 + deterministicRandom(4) * 50, // 125-175 GB
+      total: 500,
+      percentage: 0
+    },
+    network: {
+      incoming: deterministicRandom(5) * 100, // 0-100 Mbps
+      outgoing: deterministicRandom(6) * 50,  // 0-50 Mbps
+      latency: 10 + deterministicRandom(7) * 20 // 10-30ms
+    },
+    database: {
+      connections: 15 + Math.floor(deterministicRandom(8) * 35), // 15-50
+      queryTime: 1.5 + deterministicRandom(9) * 3, // 1.5-4.5ms
+      status: deterministicRandom(10) > 0.8 ? 'warning' : 'healthy'
+    },
+    api: {
+      requestsPerMin: 150 + Math.floor(deterministicRandom(11) * 300), // 150-450
+      errorRate: deterministicRandom(12) * 2, // 0-2%
+      avgResponseTime: 50 + deterministicRandom(13) * 100 // 50-150ms
+    },
+    uptime: 99.95 + deterministicRandom(14) * 0.04, // 99.95-99.99%
+    lastUpdated: new Date()
+  }
+}
 
 export function PerformanceMonitor() {
   const [metrics, setMetrics] = useState<SystemMetrics>(generateMockMetrics())
