@@ -1,0 +1,69 @@
+# Restaurant Platform Project Memory
+
+## Project Structure
+- **Backend**: NestJS + PostgreSQL + Prisma ORM (Port 3001)
+- **Frontend**: Next.js + React + TailwindCSS (Port 3000)
+- **Database**: PostgreSQL with Row Level Security for multi-tenancy
+- **Authentication**: JWT tokens with role-based access control
+
+## Key Files & Locations
+- Backend: `/home/admin/restaurant-platform-remote/backend/`
+- Frontend: `/home/admin/restaurant-platform-remote/frontend/`
+- Database connection: `postgresql://postgres:E$$athecode006@localhost:5432/restaurant_dashboard_dev`
+- Login credentials: email: `admin@test.com`, password: `password`
+
+## Recently Completed Work
+
+### 1. Branch CRUD Implementation (COMPLETED)
+- ✅ Full branch management with View/Edit/Delete functionality
+- ✅ Professional B2B styling (gray theme, small icons, subtle colors)
+- ✅ Action buttons positioned at bottom of cards
+- ✅ Fixed delete operation JSON parsing error
+- ✅ All backend API endpoints working (GET, POST, PATCH, DELETE)
+
+### 2. User CRUD Implementation (COMPLETED)
+- ✅ User creation with unique email generation (phone_timestamp@placeholder.local)
+- ✅ Fixed duplicate email constraint error
+- ✅ Role-based permissions working
+- ✅ Status field mapping (isActive boolean ↔ status enum)
+
+### 3. Code Deduplication (COMPLETED)
+**Backend:**
+- ✅ Removed 41 placeholder files from /common directory
+- ✅ Created BaseService class for common patterns
+- ✅ Refactored BranchesService & UsersService to extend BaseService
+- ✅ Eliminated duplicate soft-delete, pagination, and filtering code
+
+**Frontend:**
+- ✅ Created shared constants: `/src/constants/countries.ts`
+- ✅ Created common schemas: `/src/schemas/common.ts`
+- ✅ Unified duplicate branch schemas (create/update now use same base)
+- ✅ Removed duplicate country code arrays
+- ✅ Both pages now use shared validation fields
+
+### 4. Current Issue (IN PROGRESS)
+- ❌ Branch edit modal not working due to schema reference error
+- ✅ JUST FIXED: Changed `updateBranchSchema` to `baseBranchSchema` in editForm
+
+## Database Schema
+- **Users**: Multi-tenant with company isolation, soft deletes
+- **Branches**: Company-scoped with location data, business hours
+- **Companies**: Top-level tenant separation
+
+## API Structure
+- All endpoints secured with JWT + role-based guards
+- Consistent error handling with proper HTTP status codes
+- Soft delete pattern across all entities
+- Company-scoped data access for multi-tenancy
+
+## Common Patterns Used
+- Soft deletes with `deletedAt` field
+- Company-based data isolation
+- Role-based permissions (super_admin, company_owner, branch_manager, etc.)
+- Consistent validation schemas with phone number country code validation
+- Professional B2B UI design (muted colors, small icons, clean layout)
+
+## Next Steps if Needed
+- Test branch edit functionality after fix
+- Consider adding more shared components for forms
+- Implement additional business features as requested
