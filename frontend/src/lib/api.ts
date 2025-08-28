@@ -36,9 +36,17 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Clear auth token and redirect to login
+      // Clear auth token - let AuthContext handle the redirect
       localStorage.removeItem('auth-token')
-      window.location.href = '/login'
+      localStorage.removeItem('user')
+      
+      // Only redirect if not already on login page
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        toast.error('Session expired. Please login again.')
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 100)
+      }
       return Promise.reject(error)
     }
 

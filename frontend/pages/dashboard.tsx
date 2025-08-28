@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import toast from 'react-hot-toast'
 import { useLanguage } from '../src/contexts/LanguageContext'
+import { useAuth } from '../src/contexts/AuthContext'
+import ProtectedRoute from '../src/components/ProtectedRoute'
 import { 
   ChartBarIcon,
   ClockIcon,
@@ -96,6 +98,7 @@ StatsCard.displayName = 'StatsCard'
 
 export default function Dashboard() {
   const router = useRouter()
+  const { user, logout } = useAuth()
   const [currentTime, setCurrentTime] = useState(new Date(0)) // Initialize with epoch to avoid hydration mismatch
   const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
@@ -104,7 +107,6 @@ export default function Dashboard() {
   const [currency, setCurrency] = useState('JOD')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<number[]>([0])
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const { language, setLanguage, t } = useLanguage()
 
   // Optimize toggleGroup with useCallback
@@ -118,52 +120,26 @@ export default function Dashboard() {
 
   // Authentication check
   useEffect(() => {
-    const userStr = localStorage.getItem('user')
-    if (!userStr) {
-      router.push('/login')
-      return
-    }
-    
-    try {
-      const user = JSON.parse(userStr)
-      
+    if (user) {
       // Check if user has access to dashboard (management roles only)
       const allowedRoles = ['super_admin', 'company_owner', 'branch_manager']
       if (!allowedRoles.includes(user.role)) {
         toast.error('Access denied. Dashboard is for management only.')
-        router.push('/login')
+        logout()
         return
       }
-      
-      setCurrentUser(user)
-    } catch (error) {
-      router.push('/login')
     }
-  }, [router])
+  }, [user, logout])
 
   // Logout function
   const handleLogout = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-      
-      if (response.ok) {
-        localStorage.removeItem('user')
-        localStorage.removeItem('auth-token')
-        toast.success('Logged out successfully')
-        router.push('/login')
-      } else {
-        throw new Error('Logout failed')
-      }
+      logout()
     } catch (error) {
       console.error('Logout error:', error)
-      // Force logout even if API call fails
-      localStorage.removeItem('user')
-      localStorage.removeItem('auth-token')
-      router.push('/login')
+      logout()
     }
-  }, [router])
+  }, [logout])
 
   // Live time updates - fixed hydration
   useEffect(() => {
@@ -311,7 +287,7 @@ export default function Dashboard() {
   ], [t, formatCurrency])
 
   return (
-    <>
+    <ProtectedRoute>
       <Head>
         <title>Restaurant Management Dashboard</title>
       </Head>
@@ -650,6 +626,6 @@ export default function Dashboard() {
           </main>
         </div>
       </div>
-    </>
+    </ProtectedRoute>
   )
 }

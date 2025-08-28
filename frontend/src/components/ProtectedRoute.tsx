@@ -26,15 +26,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     // Don't check auth until hydration is complete
     if (!isHydrated) return
 
-    if (requireAuth && !isAuthenticated) {
-      router.push('/login')
-      return
-    }
+    // Add a small delay to prevent race conditions during navigation
+    const timeoutId = setTimeout(() => {
+      if (requireAuth && !isAuthenticated) {
+        router.push('/login')
+        return
+      }
 
-    if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
-      router.push('/dashboard')
-      return
-    }
+      if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+        router.push('/dashboard')
+        return
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
   }, [user, isAuthenticated, isHydrated, requireAuth, allowedRoles, router])
 
   // Show loading spinner during auth check or hydration

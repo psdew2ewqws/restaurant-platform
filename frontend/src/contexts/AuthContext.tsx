@@ -79,6 +79,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     hydrateAuth()
   }, [])
 
+  // Listen for localStorage changes (when API interceptor clears tokens)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const storedToken = localStorage.getItem('auth-token')
+      const storedUser = localStorage.getItem('user')
+      
+      if (!storedToken || !storedUser) {
+        setToken(null)
+        setUser(null)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
     try {
@@ -126,7 +142,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     toast.success('Logged out successfully')
   }, [router])
 
-  const isAuthenticated = !!user && !!token && isHydrated
+  const isAuthenticated = !!user && !!token
 
   const value: AuthContextType = {
     user,
