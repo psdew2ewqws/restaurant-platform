@@ -220,12 +220,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t, isRTL }}>
       <div 
-        dir="ltr"
-        className="font-sans transition-all duration-300 ease-in-out"
+        dir={isRTL ? 'rtl' : 'ltr'}
+        className={`font-sans transition-all duration-300 ease-in-out ${isRTL ? 'text-arabic font-arabic' : ''}`}
         style={{
-          fontFamily: "'Inter', system-ui, sans-serif",
-          letterSpacing: 'normal',
-          lineHeight: '1.6'
+          fontFamily: isRTL ? "'Noto Sans Arabic', 'Inter', system-ui, sans-serif" : "'Inter', system-ui, sans-serif",
+          letterSpacing: isRTL ? '0.025em' : 'normal',
+          lineHeight: isRTL ? '1.8' : '1.6'
         }}
       >
         {children}

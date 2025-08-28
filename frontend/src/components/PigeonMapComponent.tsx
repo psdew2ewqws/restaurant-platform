@@ -65,7 +65,7 @@ export default function PigeonMapComponent({
       {/* Location info overlay */}
       {selectedLocation && (
         <div className="absolute bottom-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded text-xs font-mono">
-          📍 {parseFloat(selectedLocation.lat).toFixed(6)}, {parseFloat(selectedLocation.lng).toFixed(6)}
+          📍 {Number(selectedLocation.lat).toFixed(6)}, {Number(selectedLocation.lng).toFixed(6)}
         </div>
       )}
       

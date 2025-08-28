@@ -7,44 +7,150 @@
 
 @layer base {
   * {
-    @apply border-gray-200;
+    @apply border-slate-200;
   }
   
   html {
     font-family: 'Inter', system-ui, sans-serif;
     scroll-behavior: smooth;
+    font-optical-sizing: auto;
   }
   
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-slate-50 text-slate-900 antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-variation-settings: "opsz" 32;
+    line-height: 1.6;
   }
   
+  /* Professional Typography Hierarchy */
+  h1, .text-h1 {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+  
+  h2, .text-h2 {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  
+  h3, .text-h3 {
+    @apply text-xl md:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+  
+  h4, .text-h4 {
+    @apply text-lg md:text-xl font-semibold text-slate-900 tracking-tight;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+  
+  h5, .text-h5 {
+    @apply text-base md:text-lg font-semibold text-slate-900;
+    line-height: 1.5;
+  }
+  
+  h6, .text-h6 {
+    @apply text-sm md:text-base font-semibold text-slate-900;
+    line-height: 1.5;
+  }
+  
+  /* Executive Typography Classes */
+  .text-executive {
+    @apply text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  
+  .text-hero {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+  
+  .text-display {
+    @apply text-2xl md:text-3xl font-bold text-slate-900 tracking-tight;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  
+  .text-title {
+    @apply text-xl md:text-2xl font-semibold text-slate-900 tracking-tight;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+  
+  .text-subtitle {
+    @apply text-lg font-semibold text-slate-700;
+    line-height: 1.4;
+  }
+  
+  .text-body-lg {
+    @apply text-lg font-medium text-slate-700;
+    line-height: 1.6;
+  }
+  
+  .text-body {
+    @apply text-base font-medium text-slate-700;
+    line-height: 1.6;
+  }
+  
+  .text-body-sm {
+    @apply text-sm font-medium text-slate-600;
+    line-height: 1.5;
+  }
+  
+  .text-caption {
+    @apply text-xs font-medium text-slate-500;
+    line-height: 1.4;
+    letter-spacing: 0.025em;
+  }
+  
+  .text-label {
+    @apply text-sm font-bold text-slate-700 uppercase tracking-wider;
+    letter-spacing: 0.05em;
+  }
+  
+  /* Arabic Font System */
   .font-arabic {
     font-family: 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
     font-feature-settings: normal;
     font-variation-settings: normal;
   }
   
-  /* Enhanced RTL Support */
-  [dir="rtl"] {
-    text-align: right;
+  .font-arabic h1, .font-arabic .text-h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl font-black;
+    line-height: 1.2;
+    letter-spacing: 0.015em;
+    word-spacing: 0.1em;
   }
   
-  [dir="rtl"] .ltr-numbers {
+  .font-arabic h2, .font-arabic .text-h2 {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    word-spacing: 0.1em;
+  }
+  
+  .font-arabic h3, .font-arabic .text-h3 {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold;
+    line-height: 1.4;
+    letter-spacing: 0.025em;
+    word-spacing: 0.1em;
+  }
+  
+  /* Simple B2B Layout Fix - Keep LTR Layout Always */
+  .dashboard-layout {
+    direction: ltr !important;
+  }
+  
+  .dashboard-layout .ltr-numbers {
     direction: ltr;
     display: inline-block;
     font-family: 'Inter', monospace;
-  }
-  
-  .rtl-layout {
-    direction: rtl;
-  }
-  
-  .rtl-layout .ltr-numbers {
-    direction: ltr;
-    display: inline-block;
   }
   
   /* Custom Scrollbar */
@@ -66,32 +172,109 @@
 }
 
 @layer components {
-  /* Professional Button Styles */
+  /* Professional B2B Color Palette */
+  :root {
+    /* Primary Brand Colors - Professional Slate */
+    --color-primary-50: rgb(248 250 252);
+    --color-primary-100: rgb(241 245 249);
+    --color-primary-200: rgb(226 232 240);
+    --color-primary-300: rgb(203 213 225);
+    --color-primary-400: rgb(148 163 184);
+    --color-primary-500: rgb(100 116 139);
+    --color-primary-600: rgb(71 85 105);
+    --color-primary-700: rgb(51 65 85);
+    --color-primary-800: rgb(30 41 59);
+    --color-primary-900: rgb(15 23 42);
+    
+    /* Success Colors - Professional Green */
+    --color-success-50: rgb(240 253 244);
+    --color-success-100: rgb(220 252 231);
+    --color-success-500: rgb(34 197 94);
+    --color-success-600: rgb(22 163 74);
+    --color-success-700: rgb(21 128 61);
+    
+    /* Warning Colors - Professional Amber */
+    --color-warning-50: rgb(255 251 235);
+    --color-warning-100: rgb(254 243 199);
+    --color-warning-500: rgb(245 158 11);
+    --color-warning-600: rgb(217 119 6);
+    --color-warning-700: rgb(180 83 9);
+    
+    /* Error Colors - Professional Red */
+    --color-error-50: rgb(254 242 242);
+    --color-error-100: rgb(254 226 226);
+    --color-error-500: rgb(239 68 68);
+    --color-error-600: rgb(220 38 38);
+    --color-error-700: rgb(185 28 28);
+    
+    /* Neutral Colors - Professional Gray Scale */
+    --color-neutral-50: rgb(249 250 251);
+    --color-neutral-100: rgb(243 244 246);
+    --color-neutral-200: rgb(229 231 235);
+    --color-neutral-300: rgb(209 213 219);
+    --color-neutral-400: rgb(156 163 175);
+    --color-neutral-500: rgb(107 114 128);
+    --color-neutral-600: rgb(75 85 99);
+    --color-neutral-700: rgb(55 65 81);
+    --color-neutral-800: rgb(31 41 55);
+    --color-neutral-900: rgb(17 24 39);
+  }
+
+  /* Executive B2B Button Styles - Professional & Modern */
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded border transition-colors duration-150;
+    @apply bg-slate-800 hover:bg-slate-900 text-white font-semibold px-6 py-3 rounded-xl border border-slate-800 hover:border-slate-900 transition-all duration-300 shadow-lg hover:shadow-xl;
+    background: linear-gradient(135deg, rgb(51 65 85), rgb(30 41 59));
   }
   
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded border border-gray-300 hover:border-gray-400 transition-colors duration-150;
+    @apply bg-white hover:bg-slate-50 text-slate-700 font-semibold px-6 py-3 rounded-xl border border-slate-200 hover:border-slate-300 transition-all duration-300 shadow-sm hover:shadow-lg;
   }
   
-  /* Professional Input Styles */
+  .btn-outline {
+    @apply bg-transparent hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-semibold px-6 py-3 rounded-xl border-2 border-slate-200 hover:border-slate-300 transition-all duration-300;
+  }
+  
+  .btn-success {
+    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-xl border border-emerald-600 hover:border-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-warning {
+    @apply bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-xl border border-amber-500 hover:border-amber-600 transition-all duration-300 shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl border border-red-600 hover:border-red-700 transition-all duration-300 shadow-lg hover:shadow-xl;
+  }
+  
+  /* Enterprise Input Styles */
   .input-field {
-    @apply border border-gray-300 bg-white rounded px-3 py-2 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150 placeholder:text-gray-500;
+    @apply border border-gray-300/60 bg-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 transition-all duration-200 placeholder:text-gray-500 font-medium shadow-sm;
   }
   
-  /* Professional Card Styles */
+  .input-field-large {
+    @apply border border-gray-300/60 bg-white rounded-lg px-5 py-4 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 transition-all duration-200 placeholder:text-gray-500 font-medium shadow-sm text-lg;
+  }
+  
+  /* Enterprise Card Styles */
   .card {
-    @apply bg-white rounded-lg p-6 shadow border border-gray-200 hover:shadow-md transition-shadow duration-150;
+    @apply bg-white rounded-xl p-8 shadow-sm border border-gray-200/60 hover:shadow-lg hover:border-gray-300/60 transition-all duration-300;
   }
   
   .card-compact {
-    @apply bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow transition-shadow duration-150;
+    @apply bg-white rounded-lg p-6 shadow-sm border border-gray-200/60 hover:shadow-md hover:border-gray-300/60 transition-all duration-300;
   }
   
-  /* Professional Stats Card */
+  .card-enterprise {
+    @apply bg-white rounded-xl p-8 shadow-sm border border-gray-200/60 hover:shadow-xl hover:border-slate-300/60 transition-all duration-400 backdrop-blur-sm;
+  }
+  
+  /* Enterprise Stats Card */
   .stats-card {
-    @apply bg-white rounded-lg p-6 shadow border border-gray-200 hover:shadow-md transition-shadow duration-150 cursor-pointer;
+    @apply bg-white rounded-xl p-8 shadow-sm border border-gray-200/60 hover:shadow-lg hover:border-slate-300/60 transition-all duration-300 cursor-pointer backdrop-blur-sm;
+  }
+  
+  .stats-card-premium {
+    @apply bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-8 shadow-sm border border-gray-200/60 hover:shadow-xl hover:border-slate-300/60 transition-all duration-400 cursor-pointer backdrop-blur-sm;
   }
   
   /* Professional Management Card */
@@ -148,17 +331,21 @@
     @apply bg-white/10 backdrop-blur-md border border-white/10;
   }
   
-  /* Status Indicators */
+  /* Enterprise Status Indicators */
   .status-online {
-    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply bg-emerald-50/80 text-emerald-700 border border-emerald-200/60 font-semibold;
   }
   
   .status-warning {
-    @apply bg-amber-50 text-amber-700 border border-amber-200;
+    @apply bg-amber-50/80 text-amber-700 border border-amber-200/60 font-semibold;
   }
   
   .status-offline {
-    @apply bg-red-50 text-red-700 border border-red-200;
+    @apply bg-red-50/80 text-red-700 border border-red-200/60 font-semibold;
+  }
+  
+  .status-active {
+    @apply bg-slate-100/80 text-slate-700 border border-slate-200/60 font-semibold;
   }
   
   /* Enhanced Animations */
@@ -262,35 +449,68 @@
     line-height: 1.6;
   }
   
-  /* RTL-specific enhancements */
-  [dir="rtl"] .management-card {
-    text-align: right;
+  /* Gold Standard B2B Professional Layout - No RTL Layout Changes */
+  .professional-layout .management-card,
+  .professional-layout .stats-card,
+  .professional-layout .live-order-card,
+  .professional-layout .section-header {
+    direction: ltr !important;
+    text-align: left !important;
   }
   
-  [dir="rtl"] .stats-card {
+  .professional-layout .arabic-content {
+    direction: rtl;
     text-align: right;
+    display: inline-block;
   }
   
-  [dir="rtl"] .live-order-card {
-    text-align: right;
-  }
-  
-  [dir="rtl"] .stats-card .text-3xl {
-    direction: ltr;
-    text-align: right;
+  .professional-layout .ltr-numbers,
+  .professional-layout .stats-card .text-3xl {
+    direction: ltr !important;
+    text-align: left !important;
     font-family: 'Inter', monospace;
   }
-  
-  [dir="rtl"] .lang-switcher {
-    flex-direction: row-reverse;
+
+  /* Arabic Dashboard Layout Fixes */
+  .dashboard-layout {
+    direction: ltr !important;
   }
   
-  [dir="rtl"] .section-header {
-    text-align: right;
+  .dashboard-layout [lang="ar"] {
+    line-height: 1.4 !important;
+    font-size: 0.95em !important;
   }
   
-  [dir="rtl"] .section-header svg {
-    transform: scaleX(-1);
+  .dashboard-layout .stats-card {
+    min-height: 100px !important;
+    max-height: 120px !important;
+    overflow: hidden;
+  }
+  
+  .dashboard-layout .live-order-card {
+    min-height: 60px !important;
+    max-height: 80px !important;
+    overflow: hidden;
+  }
+  
+  .dashboard-layout .text-sm {
+    font-size: 0.8rem !important;
+    line-height: 1.3 !important;
+  }
+  
+  .dashboard-layout .text-xs {
+    font-size: 0.7rem !important;
+    line-height: 1.2 !important;
+  }
+  
+  .dashboard-layout h1, .dashboard-layout h2, .dashboard-layout h3 {
+    line-height: 1.2 !important;
+  }
+  
+  /* Enhanced B2B Icons - Always LTR */
+  .professional-layout svg,
+  .professional-layout .section-header svg {
+    transform: none !important;
   }
   
   /* Loading animations */

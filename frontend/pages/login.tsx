@@ -28,7 +28,7 @@ export default function Login() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,17 +38,20 @@ export default function Login() {
       
       const result = await response.json()
       
-      if (response.ok && result.success) {
+      if (response.ok) {
         toast.success('Login successful!')
         
-        // Store user data in localStorage for quick access
+        // Store user data and auth token in localStorage
         if (result.user) {
           localStorage.setItem('user', JSON.stringify(result.user))
+        }
+        if (result.accessToken) {
+          localStorage.setItem('auth-token', result.accessToken)
         }
         
         router.push('/dashboard')
       } else {
-        toast.error(result.error || 'Login failed')
+        toast.error(result.message || 'Login failed')
       }
     } catch (error) {
       console.error('Login error:', error)
@@ -127,7 +130,7 @@ export default function Login() {
             
             <div className="text-center">
               <p className="text-sm text-gray-600">
-                Demo: admin@restaurantplatform.com / admin123
+                Demo: admin@test.com / test123
               </p>
             </div>
           </form>

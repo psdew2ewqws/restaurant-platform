@@ -26,7 +26,8 @@ import {
   BanknotesIcon,
   ChevronDownIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  BellIcon
 } from '@heroicons/react/24/outline'
 import { 
   CheckCircleIcon as CheckCircleIconSolid,
@@ -35,19 +36,7 @@ import {
 } from '@heroicons/react/24/solid'
 
 // Import advanced components
-import { EnterpriseAnalytics } from '../src/components/EnterpriseAnalytics'
-import { CacheManager } from '../src/components/CacheManager'
-import { OrderManagement } from '../src/components/OrderManagement'
-import { NotificationCenter } from '../src/components/NotificationCenter'
-import { EnterpriseDataExport } from '../src/components/EnterpriseDataExport'
-import { OptimizedDataTable } from '../src/components/OptimizedDataTable'
 import { PremiumButton, ButtonGroup, ProfessionalCard } from '../src/components/PremiumButton'
-
-// Import hydration-safe and dynamic components
-import { ErrorBoundary } from '../src/components/ErrorBoundary'
-import { StatsCardSkeleton, ChartSkeleton } from '../src/components/SkeletonLoader'
-import { DynamicRealTimeAnalytics } from '../src/components/DynamicLoader'
-import { PerformanceMonitor } from '../src/components/PerformanceMonitor'
 
 // Mock data
 const mockRealtimeMetrics = {
@@ -76,7 +65,7 @@ const systemHealth = [
   { component: 'Phone System', status: 'maintenance', uptime: '95.1%', latency: 'N/A' }
 ]
 
-// Optimized StatsCard component with React.memo
+// Optimized StatsCard component with React.memo and Arabic support
 const StatsCard = memo(({ title, value, trend, icon: Icon, className = "" }: {
   title: string;
   value: string;
@@ -84,17 +73,17 @@ const StatsCard = memo(({ title, value, trend, icon: Icon, className = "" }: {
   icon: any;
   className?: string;
 }) => (
-  <div className={`stats-card ${className}`}>
+  <div className={`stats-card ${className} min-h-[100px] max-h-[120px]`}>
     <div className="flex items-center justify-between mb-2">
-      <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-      <Icon className="w-5 h-5 text-gray-400" />
+      <h3 className="text-sm font-medium text-gray-500 leading-tight truncate flex-1 pr-2">{title}</h3>
+      <Icon className="w-5 h-5 text-gray-400 flex-shrink-0" />
     </div>
     <div className="flex items-baseline space-x-2">
-      <span className="text-2xl font-bold text-gray-900 ltr-numbers">
+      <span className="text-xl md:text-2xl font-bold text-gray-900 ltr-numbers truncate">
         {value}
       </span>
       {trend && (
-        <span className="text-sm font-medium text-emerald-600 flex items-center">
+        <span className="text-xs md:text-sm font-medium text-emerald-600 flex items-center flex-shrink-0">
           <ArrowTrendingUpIcon className="w-3 h-3 mr-1" />
           {trend}
         </span>
@@ -161,6 +150,7 @@ export default function Dashboard() {
       
       if (response.ok) {
         localStorage.removeItem('user')
+        localStorage.removeItem('auth-token')
         toast.success('Logged out successfully')
         router.push('/login')
       } else {
@@ -170,6 +160,7 @@ export default function Dashboard() {
       console.error('Logout error:', error)
       // Force logout even if API call fails
       localStorage.removeItem('user')
+      localStorage.removeItem('auth-token')
       router.push('/login')
     }
   }, [router])
@@ -325,57 +316,75 @@ export default function Dashboard() {
         <title>Restaurant Management Dashboard</title>
       </Head>
       
-      {/* Left-to-Right layout */}
-      <div className="min-h-screen bg-gray-50">
-        {/* Professional Header - LTR */}
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Clean Professional Dashboard - Always LTR */}
+      <div className="min-h-screen bg-gray-50 dashboard-layout">
+        {/* Compact Professional Header */}
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6">
             <div className="flex justify-between items-center h-16">
-              {/* Logo & Title - Far Left */}
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+              {/* Compact Branding */}
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center shadow-sm">
                   <span className="text-white text-sm font-bold">RM</span>
                 </div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {t('restaurant_management')}
-                </h1>
+                <div>
+                  <h1 className="text-lg font-bold text-gray-900">
+                    {t('restaurant_management')}
+                  </h1>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                    <span className="text-xs text-gray-600 font-medium uppercase">
+                      {t('system_online')}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Header Controls - Far Right */}
-              <div className="flex items-center space-x-4">
-                {/* System Status */}
-                <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span className="text-emerald-700 text-sm font-medium">
-                    {t('system_online')}
-                  </span>
-                </div>
-
+              {/* Compact Controls */}
+              <div className="flex items-center space-x-3">
                 {/* Language Switcher */}
-                <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                <div className="flex items-center bg-gray-100 rounded-md p-0.5">
                   <button
                     onClick={() => setLanguage('en')}
-                    className={`lang-switcher ${language === 'en' ? 'active' : 'inactive'}`}
+                    className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
+                      language === 'en' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
                   >
                     EN
                   </button>
                   <button
                     onClick={() => setLanguage('ar')}
-                    className={`lang-switcher ${language === 'ar' ? 'active' : 'inactive'}`}
+                    className={`px-2 py-1 text-xs font-semibold rounded transition-colors ${
+                      language === 'ar' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
                   >
                     AR
                   </button>
                 </div>
 
-                <NotificationCenter />
+                {/* Compact Notification Bell */}
+                <div className="relative">
+                  <button className="p-1.5 text-gray-500 hover:text-gray-700 rounded-md hover:bg-gray-100 transition-colors">
+                    <BellIcon className="w-4 h-4" />
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      3
+                    </span>
+                  </button>
+                </div>
 
-                <div className="text-sm text-gray-600 font-mono">
+                {/* Time */}
+                <div className="text-xs text-gray-500 font-mono">
                   {formatTime(currentTime)}
                 </div>
 
+                {/* Styled Logout Button */}
                 <button 
                   onClick={handleLogout}
-                  className="btn-secondary"
+                  className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-200 hover:border-gray-300 transition-all duration-200"
                 >
                   {t('logout')}
                 </button>
@@ -439,18 +448,18 @@ export default function Dashboard() {
 
         {/* Main Dashboard Layout - Left to Right */}
         <div className="flex min-h-screen bg-gray-50">
-          {/* Left Sidebar - Restaurant Management Sections - Always Visible */}
-          <aside className="w-80 lg:w-80 md:w-72 sm:w-64 bg-white flex-shrink-0 border-r border-gray-200">
+          {/* Left Sidebar - Restaurant Management */}
+          <aside className="w-80 lg:w-80 md:w-72 sm:w-64 bg-white flex-shrink-0 border-r border-gray-200 overflow-hidden">
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 leading-tight">
                 {t('management_sections')}
               </h2>
               
-              {/* Management Groups - Compact Cards */}
+              {/* Management Groups - Simple Clean Design */}
               <div className="grid grid-cols-1 gap-4">
                 {businessModules.map((group, groupIndex) => (
                   <div key={groupIndex} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    {/* Group Header - Compact */}
+                    {/* Group Header - Simple */}
                     <div 
                       className="flex items-center justify-between p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => toggleGroup(groupIndex)}
@@ -459,9 +468,9 @@ export default function Dashboard() {
                         <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
                           <group.icon className="w-4 h-4 text-blue-600" />
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 text-sm">{group.title}</h3>
-                          <p className="text-xs text-gray-500">{group.items.length} options</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 text-sm leading-tight truncate">{group.title}</h3>
+                          <p className="text-xs text-gray-500 truncate">{group.items.length} options</p>
                         </div>
                       </div>
                       <ChevronDownIcon 
@@ -471,15 +480,15 @@ export default function Dashboard() {
                       />
                     </div>
                     
-                    {/* Group Items - Grid Layout */}
+                    {/* Group Items - Simple Grid Layout */}
                     {expandedGroups.includes(groupIndex) && (
                       <div className="p-3">
                         <div className="grid grid-cols-1 gap-1">
                           {group.items.map((item, itemIndex) => (
                             <Link key={itemIndex} href={item.href || '#'}>
                               <div className="flex items-center p-3 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer group">
-                                <item.icon className="w-4 h-4 text-gray-400 group-hover:text-blue-500 mr-3" />
-                                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
+                                <item.icon className="w-4 h-4 text-gray-400 group-hover:text-blue-500 mr-3 flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 truncate">
                                   {item.name}
                                 </span>
                               </div>
@@ -494,7 +503,7 @@ export default function Dashboard() {
             </div>
           </aside>
           
-          {/* Main Content Area - Right Side in LTR */}
+          {/* Main Content Area - Clean Design */}
           <main className="flex-1 px-4 md:px-6 py-4 md:py-8">
             <div className="max-w-7xl mx-auto">
 
@@ -516,10 +525,36 @@ export default function Dashboard() {
                     </div>
                   </section>
 
-                  {/* Live Analytics */}
-                  <ErrorBoundary fallback={<ChartSkeleton />}>
-                    <DynamicRealTimeAnalytics />
-                  </ErrorBoundary>
+                  {/* Live Orders Section */}
+                  <section className="mb-8">
+                    <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-4 leading-tight">Live Orders</h2>
+                    <div className="space-y-3">
+                      {mockLiveOrders.map((order) => {
+                        const statusConfig = getOrderStatusConfig(order.status)
+                        return (
+                          <div key={order.id} className="live-order-card max-h-[80px] overflow-hidden">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4 flex-1 min-w-0">
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-medium text-gray-900 text-sm truncate">{order.orderNumber}</span>
+                                  <span className="text-xs text-gray-500 truncate">{order.customer.name}</span>
+                                </div>
+                                <div className="text-xs text-gray-600 hidden sm:block truncate">
+                                  {order.branch} • {formatTime(order.timestamp)}
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-3 flex-shrink-0">
+                                <span className="font-semibold text-gray-900 ltr-numbers text-sm">{formatCurrency(order.total)}</span>
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusConfig.color} whitespace-nowrap`}>
+                                  {order.status}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </section>
                 </>
               )}
 
@@ -590,10 +625,27 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Other tabs content can be added here */}
-              {activeTab === 'analytics' && <EnterpriseAnalytics />}
-              {activeTab === 'orders' && <OrderManagement />}
-              {activeTab === 'operations' && <CacheManager />}
+              {/* Other tabs content */}
+              {activeTab === 'analytics' && (
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Analytics Dashboard</h2>
+                  <p className="text-gray-600">Advanced analytics features coming soon...</p>
+                </div>
+              )}
+              
+              {activeTab === 'orders' && (
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Management</h2>
+                  <p className="text-gray-600">Order management features coming soon...</p>
+                </div>
+              )}
+              
+              {activeTab === 'operations' && (
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Operations Center</h2>
+                  <p className="text-gray-600">Operations management features coming soon...</p>
+                </div>
+              )}
             </div>
           </main>
         </div>

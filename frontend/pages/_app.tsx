@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import { LanguageProvider } from '../src/contexts/LanguageContext'
+import { AuthProvider } from '../src/contexts/AuthContext'
 import '../styles/globals.css'
 
 const queryClient = new QueryClient({
@@ -17,11 +18,13 @@ const queryClient = new QueryClient({
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <Component {...pageProps} />
-        <Toaster position="top-right" />
-        <ReactQueryDevtools initialIsOpen={false} />
-      </LanguageProvider>
+      <AuthProvider>
+        <LanguageProvider>
+          <Component {...pageProps} />
+          <Toaster position="top-right" />
+          <ReactQueryDevtools initialIsOpen={false} />
+        </LanguageProvider>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }

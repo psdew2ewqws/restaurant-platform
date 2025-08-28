@@ -10,12 +10,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const buttonVariants = {
-  primary: 'bg-blue-600 hover:bg-blue-700 focus:bg-blue-700 text-white shadow-sm border-transparent',
-  secondary: 'bg-gray-600 hover:bg-gray-700 focus:bg-gray-700 text-white shadow-sm border-transparent',
-  outline: 'bg-transparent hover:bg-gray-50 focus:bg-gray-50 text-gray-700 border-gray-300 hover:border-gray-400',
-  ghost: 'bg-transparent hover:bg-gray-100 focus:bg-gray-100 text-gray-700 border-transparent',
-  destructive: 'bg-red-600 hover:bg-red-700 focus:bg-red-700 text-white shadow-sm border-transparent',
-  success: 'bg-emerald-600 hover:bg-emerald-700 focus:bg-emerald-700 text-white shadow-sm border-transparent'
+  primary: 'bg-slate-800 hover:bg-slate-900 focus:bg-slate-900 text-white shadow-sm border-slate-800 hover:border-slate-900',
+  secondary: 'bg-slate-100 hover:bg-slate-200 focus:bg-slate-200 text-slate-800 shadow-sm border-slate-200 hover:border-slate-300',
+  outline: 'bg-transparent hover:bg-slate-50 focus:bg-slate-50 text-slate-700 border-slate-300 hover:border-slate-400',
+  ghost: 'bg-transparent hover:bg-slate-100 focus:bg-slate-100 text-slate-700 border-transparent',
+  destructive: 'bg-red-600 hover:bg-red-700 focus:bg-red-700 text-white shadow-sm border-red-600 hover:border-red-700',
+  success: 'bg-emerald-600 hover:bg-emerald-700 focus:bg-emerald-700 text-white shadow-sm border-emerald-600 hover:border-emerald-700'
 }
 
 const buttonSizes = {
