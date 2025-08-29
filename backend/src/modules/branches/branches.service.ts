@@ -55,8 +55,16 @@ export class BranchesService extends BaseService<any> {
     return branch;
   }
 
-  async findAll(user: any) {
-    const whereClause = this.buildBaseWhereClause(user);
+  async findAll(user: any, filters: { companyId?: string } = {}) {
+    let whereClause = this.buildBaseWhereClause(user);
+    
+    // Add company filter for super_admin
+    if (user.role === 'super_admin' && filters.companyId) {
+      whereClause = {
+        ...whereClause,
+        companyId: filters.companyId,
+      };
+    }
 
     const branches = await this.prisma.branch.findMany({
       where: whereClause,

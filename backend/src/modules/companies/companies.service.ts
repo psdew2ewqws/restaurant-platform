@@ -94,7 +94,7 @@ export class CompaniesService {
     where?: Prisma.CompanyWhereInput;
     orderBy?: Prisma.CompanyOrderByWithRelationInput;
   }): Promise<Company[]> {
-    const { skip, take, cursor, where, orderBy } = params;
+    const { skip, take = 50, cursor, where, orderBy } = params;
     
     return this.prisma.company.findMany({
       skip,
@@ -102,35 +102,37 @@ export class CompaniesService {
       cursor,
       where: {
         ...where,
-        deletedAt: null, // Only return non-deleted companies
+        deletedAt: null,
       },
-      orderBy,
-      include: {
-        branches: {
-          where: { deletedAt: null },
-          select: {
-            id: true,
-            name: true,
-            nameAr: true,
-            isActive: true,
-            isDefault: true,
-          },
-        },
-        users: {
-          where: { deletedAt: null },
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            status: true,
-          },
-        },
+      orderBy: orderBy || { updatedAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+        businessType: true,
+        timezone: true,
+        defaultCurrency: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
-            branches: true,
-            users: true,
+            branches: { where: { deletedAt: null, isActive: true } },
+            users: { where: { deletedAt: null, status: 'active' } },
           },
+        },
+        licenses: {
+          where: { status: 'active' },
+          select: {
+            id: true,
+            status: true,
+            daysRemaining: true,
+            expiresAt: true,
+            features: true,
+          },
+          take: 1,
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -149,19 +151,63 @@ export class CompaniesService {
           ],
           deletedAt: null,
         },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logo: true,
+          businessType: true,
+          timezone: true,
+          defaultCurrency: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
           branches: {
             where: { deletedAt: null },
+            select: {
+              id: true,
+              name: true,
+              nameAr: true,
+              isActive: true,
+              isDefault: true,
+              address: true,
+              phone: true,
+              email: true,
+            },
             orderBy: { isDefault: 'desc' },
+            take: 10,
           },
           users: {
             where: { deletedAt: null },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              status: true,
+              createdAt: true,
+            },
             orderBy: { createdAt: 'desc' },
+            take: 20,
+          },
+          licenses: {
+            where: { status: { in: ['active', 'expired'] } },
+            select: {
+              id: true,
+              status: true,
+              daysRemaining: true,
+              expiresAt: true,
+              totalDays: true,
+              features: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
           },
           _count: {
             select: {
-              branches: true,
-              users: true,
+              branches: { where: { deletedAt: null } },
+              users: { where: { deletedAt: null } },
             },
           },
         },

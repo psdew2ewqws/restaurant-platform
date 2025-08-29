@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, Min, Max } from 'class-validator';
-import { CompanyStatus, LicenseType } from '@prisma/client';
+import { CompanyStatus } from '@prisma/client';
 
 export class CreateCompanyDto {
   @ApiProperty({ description: 'Company name' })

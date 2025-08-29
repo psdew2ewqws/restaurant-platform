@@ -10,6 +10,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { BranchesService } from './branches.service';
@@ -46,8 +47,8 @@ export class BranchesController {
   @Roles('super_admin', 'company_owner', 'branch_manager')
   @ApiOperation({ summary: 'Get all branches' })
   @ApiResponse({ status: 200, description: 'Branches retrieved successfully' })
-  async findAll(@CurrentUser() user: any) {
-    const branches = await this.branchesService.findAll(user);
+  async findAll(@CurrentUser() user: any, @Query('companyId') companyId?: string) {
+    const branches = await this.branchesService.findAll(user, { companyId });
     return { branches };
   }
 

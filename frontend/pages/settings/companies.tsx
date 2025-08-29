@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { 
@@ -202,11 +202,6 @@ export default function CompaniesPage() {
       const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/licenses/company/${companyId}?_t=${timestamp}`)
       if (response?.data) {
         // License data fetched successfully
-        console.log(`🔄 Updating license state for company ${companyId}:`, {
-          previous: companyLicenses[companyId]?.daysRemaining,
-          new: response.data.daysRemaining,
-          expiresAt: response.data.expiresAt
-        })
         setCompanyLicenses(prev => ({ 
           ...prev, 
           [companyId]: response.data 
@@ -217,6 +212,16 @@ export default function CompaniesPage() {
     }
   }, [apiCall])
 
+  // Memoized stats calculation
+  const stats = useMemo(() => {
+    return {
+      activeCount: companies.filter(c => c.status === 'active').length,
+      trialCount: companies.filter(c => c.status === 'trial').length,
+      suspendedCount: companies.filter(c => c.status === 'suspended').length,
+      totalBranches: companies.reduce((sum, c) => sum + (c._count?.branches || 0), 0),
+    }
+  }, [companies])
+
   // Fetch licenses for all companies when companies are loaded
   useEffect(() => {
     if (companies.length > 0) {
@@ -224,7 +229,7 @@ export default function CompaniesPage() {
         fetchCompanyLicense(company.id)
       })
     }
-  }, [companies])
+  }, [companies, fetchCompanyLicense])
 
   // Create company
   const handleCreateCompany = useCallback(async (data: CreateCompanyForm) => {
@@ -258,7 +263,6 @@ export default function CompaniesPage() {
       // Remove fields that shouldn't be sent to backend
       const { slug, licenseDuration, ...updateData } = data
       
-      console.log('🔧 Sending update data:', updateData)
       
       const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/${selectedCompany.id}`, {
         method: 'PATCH',
@@ -266,7 +270,6 @@ export default function CompaniesPage() {
       })
 
       if (response) {
-        console.log('✅ Company update successful, response:', response)
         toast.success('Company updated successfully!')
         editForm.reset()
         setShowEditForm(false)
@@ -274,7 +277,6 @@ export default function CompaniesPage() {
         fetchCompanies()
         // Refresh license data after update
         setTimeout(() => {
-          console.log('🔄 Refreshing license data after company update...')
           setCompanyLicenses({})
         }, 500)
       }
@@ -345,8 +347,6 @@ export default function CompaniesPage() {
         currency: 'USD'
       };
       
-      console.log(`🔗 Making renewal request to: ${url}`);
-      console.log(`📦 Payload:`, payload);
       
       const response = await apiCall(url, {
         method: 'POST',
@@ -356,23 +356,17 @@ export default function CompaniesPage() {
         }
       })
       
-      console.log(`📨 API Response:`, response);
 
       if (response && response.status === 'success') {
-        console.log(`🎉 License renewal successful for company ${companyId}, extending by ${renewalDays} days`)
         toast.success(`License renewed for ${renewalDays} days`)
         setShowRenewalModal(false)
         setRenewalDays(30) // Reset to default
         
         // Refresh license data and companies list
-        console.log(`🔄 Waiting 500ms for backend to process, then refreshing...`)
         await new Promise(resolve => setTimeout(resolve, 500)) // Small delay to ensure backend processing is complete
         
-        console.log(`🔄 Refreshing license data for company ${companyId}...`)
         await fetchCompanyLicense(companyId)
-        console.log(`🔄 Refreshing all companies data...`)
         await fetchCompanies()
-        console.log(`✅ All data refreshed after renewal`)
       } else {
         console.warn(`⚠️ Unexpected renewal response:`, response);
         toast.error('License renewal failed. Please check the logs.')
@@ -411,24 +405,24 @@ export default function CompaniesPage() {
     return statusLabels[status as keyof typeof statusLabels] || 'Unknown'
   }
 
-  const getLicenseStatusColor = (license: any) => {
+  const getLicenseStatusColor = useCallback((license: any) => {
     if (!license) return 'text-gray-500 bg-gray-100'
     if (license.isExpired) return 'text-red-600 bg-red-100'
     if (license.daysRemaining <= 7) return 'text-red-600 bg-red-100'
     if (license.daysRemaining <= 14) return 'text-orange-600 bg-orange-100'
     if (license.daysRemaining <= 30) return 'text-amber-600 bg-amber-100'
     return 'text-green-600 bg-green-100'
-  }
+  }, [])
 
-  const getLicenseStatusIcon = (license: any) => {
+  const getLicenseStatusIcon = useCallback((license: any) => {
     if (!license) return <ClockIcon className="w-4 h-4" />
     if (license.isExpired || license.daysRemaining <= 7) {
       return <ExclamationTriangleIcon className="w-4 h-4" />
     }
     return <CheckCircleIcon className="w-4 h-4" />
-  }
+  }, [])
 
-  const formatTimeRemaining = (days: number) => {
+  const formatTimeRemaining = useCallback((days: number) => {
     if (days >= 365) {
       const years = Math.floor(days / 365)
       const remainingDays = days % 365
@@ -439,7 +433,7 @@ export default function CompaniesPage() {
       return `${months} month${months > 1 ? 's' : ''} ${remainingDays > 0 ? `${remainingDays} days` : ''}`
     }
     return `${days} day${days > 1 ? 's' : ''}`
-  }
+  }, [])
 
   if (loading) {
     return (
@@ -517,19 +511,19 @@ export default function CompaniesPage() {
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-green-600">{companies.filter(c => c.status === 'active').length}</div>
+                  <div className="text-lg font-semibold text-green-600">{stats.activeCount}</div>
                   <div className="text-xs text-gray-500 mt-1">Active</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-blue-600">{companies.filter(c => c.status === 'trial').length}</div>
+                  <div className="text-lg font-semibold text-blue-600">{stats.trialCount}</div>
                   <div className="text-xs text-gray-500 mt-1">Trial</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-yellow-600">{companies.filter(c => c.status === 'suspended').length}</div>
+                  <div className="text-lg font-semibold text-yellow-600">{stats.suspendedCount}</div>
                   <div className="text-xs text-gray-500 mt-1">Suspended</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-gray-600">{companies.reduce((sum, c) => sum + (c._count?.branches || 0), 0)}</div>
+                  <div className="text-lg font-semibold text-gray-600">{stats.totalBranches}</div>
                   <div className="text-xs text-gray-500 mt-1">Total Branches</div>
                 </div>
               </div>
@@ -548,16 +542,6 @@ export default function CompaniesPage() {
               {companies.map((company) => {
                 const companyLicense = companyLicenses[company.id]
                 
-                // Debug logging for Default Restaurant
-                if (company.name === 'Default Restaurant') {
-                  console.log(`🖥️ Rendering ${company.name}:`, {
-                    companyId: company.id,
-                    hasLicense: !!companyLicense,
-                    daysRemaining: companyLicense?.daysRemaining,
-                    isExpired: companyLicense?.isExpired,
-                    expiresAt: companyLicense?.expiresAt
-                  })
-                }
                 
                 return (
                 <div key={company.id} className="bg-white rounded-lg shadow border p-6 hover:shadow-lg transition-shadow flex flex-col h-full">

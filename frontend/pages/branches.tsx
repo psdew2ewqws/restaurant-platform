@@ -4,11 +4,13 @@ import Link from 'next/link'
 import { 
   ArrowLeftIcon, 
   BuildingOfficeIcon as BuildingIcon, 
+  BuildingOfficeIcon as CompanyIcon,
   PlusIcon, 
   XMarkIcon, 
   MapPinIcon, 
   PencilIcon, 
-  TrashIcon 
+  TrashIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 // import { EyeIcon } from '@heroicons/react/24/outline'
 import ProtectedRoute from '../src/components/ProtectedRoute'
@@ -72,6 +74,7 @@ const baseBranchSchema = z.object({
   allowsOnlineOrders: z.boolean().default(true),
   allowsDelivery: z.boolean().default(true),
   allowsPickup: z.boolean().default(true),
+  companyId: z.string().optional(), // Optional for super_admin, required when provided
 }).refine((data) => {
   // Validate phone number format based on country code
   const countryData = COUNTRY_CODES.find(c => c.code === data.countryCode)
@@ -90,11 +93,19 @@ const updateBranchSchema = baseBranchSchema
 type CreateBranchForm = z.infer<typeof createBranchSchema>
 type UpdateBranchForm = z.infer<typeof updateBranchSchema>
 
+interface Company {
+  id: string
+  name: string
+  slug: string
+}
+
 export default function BranchesPage() {
   const { user } = useAuth()
   const { apiCall } = useApiClient()
   const { license, trackFeatureUsage } = useLicense()
   const [branches, setBranches] = useState<Branch[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
@@ -126,34 +137,55 @@ export default function BranchesPage() {
     },
   })
 
+  // Fetch companies (for super_admin)
+  const fetchCompanies = useCallback(async () => {
+    if (user?.role !== 'super_admin') return
+    
+    try {
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/list`)
+      if (data?.companies) {
+        setCompanies(data.companies)
+      }
+    } catch (error) {
+      console.error('Error fetching companies:', error)
+    }
+  }, [apiCall, user?.role])
+
   // Fetch branches
   const fetchBranches = useCallback(async () => {
     try {
       setLoading(true)
-      console.log('🔄 fetchBranches: Starting to fetch branches...')
-      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches`)
-      console.log('📥 fetchBranches: Received data:', data)
+      const endpoint = user?.role === 'super_admin' && selectedCompanyId 
+        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches?companyId=${selectedCompanyId}`
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches`
+      
+      const data = await apiCall(endpoint)
       if (data) {
-        console.log('📝 fetchBranches: Setting branches to:', data.branches || [])
         setBranches(data.branches || [])
       }
     } catch (error) {
-      console.error('❌ Error fetching branches:', error)
+      console.error('Error fetching branches:', error)
     } finally {
       setLoading(false)
-      console.log('✅ fetchBranches: Finished')
     }
-  }, [apiCall])
+  }, [apiCall, user?.role, selectedCompanyId])
 
-  // Load branches on mount
+  // Load companies and branches on mount
   useEffect(() => {
+    fetchCompanies()
     fetchBranches()
-  }, [fetchBranches])
+  }, [fetchCompanies, fetchBranches])
 
   // Create branch
   const handleCreateBranch = useCallback(async (data: CreateBranchForm) => {
     if (license?.is_expired) {
       toast.error('Your license has expired! Please renew to create new branches.')
+      return
+    }
+
+    // Validate company selection for super_admin
+    if (user?.role === 'super_admin' && !selectedCompanyId) {
+      toast.error('Please select a company to create a branch for.')
       return
     }
 
@@ -166,6 +198,8 @@ export default function BranchesPage() {
         phone: `${data.countryCode}${data.phone}`, // Combine country code with phone number
         latitude: mapLocation?.lat,
         longitude: mapLocation?.lng,
+        // Include companyId if super_admin and company is selected
+        ...(user?.role === 'super_admin' && selectedCompanyId && { companyId: selectedCompanyId }),
       }
       // Remove countryCode from the data being sent to API
       const { countryCode, ...apiData } = branchData
@@ -188,7 +222,7 @@ export default function BranchesPage() {
     } finally {
       setSubmitting(false)
     }
-  }, [apiCall, createForm, fetchBranches, mapLocation])
+  }, [apiCall, createForm, fetchBranches, mapLocation, license, trackFeatureUsage, user?.role, selectedCompanyId])
 
   // Edit branch
   const handleEditBranch = useCallback(async (data: UpdateBranchForm) => {
@@ -363,15 +397,26 @@ export default function BranchesPage() {
               
               {/* Right Side Actions */}
               <div className="flex items-center space-x-3">
-                {/* License Info */}
-                {license && (
-                  <div className="text-xs text-gray-500 text-right">
-                    <div>Branches: {branches.length}</div>
-                    <div className={`${license.is_expired ? 'text-red-600' : license.is_near_expiry ? 'text-amber-600' : ''}`}>
-                      {license.is_expired ? 'License Expired' : `${license.days_remaining}d left`}
-                    </div>
+                {/* Company Selector for Super Admin */}
+                {user?.role === 'super_admin' && (
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="company-select" className="text-sm font-medium text-gray-700">Company:</label>
+                    <select
+                      id="company-select"
+                      value={selectedCompanyId}
+                      onChange={(e) => setSelectedCompanyId(e.target.value)}
+                      className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                    >
+                      <option value="">All Companies</option>
+                      {companies.map(company => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
+
                 
                 <button 
                   onClick={() => {
@@ -535,6 +580,37 @@ export default function BranchesPage() {
 
               <form onSubmit={createForm.handleSubmit(handleCreateBranch)} className="p-6">
                 <div className="space-y-4">
+                  {/* Company/Brand Selector for Super Admin */}
+                  {user?.role === 'super_admin' && (
+                    <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <span className="flex items-center">
+                          <CompanyIcon className="w-4 h-4 mr-1" />
+                          Select Company/Brand *
+                        </span>
+                      </label>
+                      <select
+                        value={selectedCompanyId}
+                        onChange={(e) => setSelectedCompanyId(e.target.value)}
+                        required={user?.role === 'super_admin'}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        <option value="">Choose which brand this branch belongs to...</option>
+                        {companies.map(company => (
+                          <option key={company.id} value={company.id}>
+                            🏢 {company.name}
+                          </option>
+                        ))}
+                      </select>
+                      {!selectedCompanyId && (
+                        <p className="mt-2 text-sm text-amber-600 flex items-center">
+                          <ExclamationTriangleIcon className="w-4 h-4 mr-1" />
+                          You must select a company/brand before creating a branch
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label>
                     <input

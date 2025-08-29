@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
-import { ArrowLeftIcon, UserGroupIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, UserGroupIcon, PlusIcon, XMarkIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline'
 import ProtectedRoute from '../../src/components/ProtectedRoute'
 import { useAuth } from '../../src/contexts/AuthContext'
 import { useApiClient } from '../../src/hooks/useApiClient'
@@ -87,7 +87,9 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [viewingUser, setViewingUser] = useState<User | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Form setup
@@ -283,6 +285,11 @@ export default function UsersPage() {
     setShowEditForm(true)
   }, [editForm])
 
+  const openViewModal = useCallback((user: User) => {
+    setViewingUser(user)
+    setShowViewModal(true)
+  }, [])
+
   const getRoleBadge = (role: string) => {
     const roleColors = {
       super_admin: 'bg-purple-100 text-purple-800',
@@ -420,29 +427,34 @@ export default function UsersPage() {
                       </span>
                     </div>
                     
-                    {/* Edit/Delete buttons based on permissions */}
-                    {(user.canManage || user.canDelete) && (
-                      <div className="flex items-center justify-end space-x-2 pt-2">
-                        {user.canManage && (
-                          <button
-                            onClick={() => openEditForm(user)}
-                            className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                          >
-                            <PencilIcon className="w-3 h-3 mr-1" />
-                            Edit
-                          </button>
-                        )}
-                        {user.canDelete && (
-                          <button
-                            onClick={() => handleDeleteUser(user.id, user.name || `${user.firstName} ${user.lastName}`)}
-                            className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                          >
-                            <TrashIcon className="w-3 h-3 mr-1" />
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    {/* View/Edit/Delete buttons */}
+                    <div className="flex items-center justify-end space-x-2 pt-2">
+                      <button
+                        onClick={() => openViewModal(user)}
+                        className="inline-flex items-center px-2 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded"
+                      >
+                        <EyeIcon className="w-3 h-3 mr-1" />
+                        View
+                      </button>
+                      {user.canManage && (
+                        <button
+                          onClick={() => openEditForm(user)}
+                          className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                        >
+                          <PencilIcon className="w-3 h-3 mr-1" />
+                          Edit
+                        </button>
+                      )}
+                      {user.canDelete && (
+                        <button
+                          onClick={() => handleDeleteUser(user.id, user.name || `${user.firstName} ${user.lastName}`)}
+                          className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                        >
+                          <TrashIcon className="w-3 h-3 mr-1" />
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -623,6 +635,118 @@ export default function UsersPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* View User Modal */}
+        {showViewModal && viewingUser && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl bg-white rounded-lg shadow-lg">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">User Details</h3>
+                  <p className="text-sm text-gray-600">{viewingUser.name || `${viewingUser.firstName} ${viewingUser.lastName}`}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowViewModal(false)
+                    setViewingUser(null)
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <XMarkIcon className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {viewingUser.name || `${viewingUser.firstName || ''} ${viewingUser.lastName || ''}`.trim()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {viewingUser.email}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {viewingUser.username || 'Not set'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {viewingUser.phone || 'Not set'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getRoleBadge(viewingUser.role)}`}>
+                        {viewingUser.role.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                        viewingUser.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {viewingUser.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {viewingUser.company && (
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                      <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                        {viewingUser.company.name}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Created At</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {new Date(viewingUser.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                      {new Date(viewingUser.updatedAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-6 border-t border-gray-200 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowViewModal(false)
+                      setViewingUser(null)
+                    }}
+                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
