@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsBoolean } from 'class-validator';
-import { CompanyStatus } from '@prisma/client';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, Min, Max } from 'class-validator';
+import { CompanyStatus, LicenseType } from '@prisma/client';
 
 export class CreateCompanyDto {
   @ApiProperty({ description: 'Company name' })
@@ -30,6 +30,18 @@ export class CreateCompanyDto {
   @IsOptional()
   @IsString()
   defaultCurrency?: string;
+
+  @ApiProperty({ description: 'License type', enum: LicenseType, default: LicenseType.trial })
+  @IsOptional()
+  @IsEnum(LicenseType)
+  licenseType?: LicenseType;
+
+  @ApiProperty({ description: 'License duration in months', default: 1, minimum: 1, maximum: 60 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(60)
+  licenseDuration?: number;
 }
 
 export class UpdateCompanyDto {
@@ -62,6 +74,18 @@ export class UpdateCompanyDto {
   @IsOptional()
   @IsEnum(CompanyStatus)
   status?: CompanyStatus;
+
+  @ApiProperty({ description: 'License type', enum: LicenseType, required: false })
+  @IsOptional()
+  @IsEnum(LicenseType)
+  licenseType?: LicenseType;
+
+  @ApiProperty({ description: 'License duration in months', minimum: 1, maximum: 60, required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(60)
+  licenseDuration?: number;
 }
 
 export class CompanyResponseDto {
@@ -100,4 +124,7 @@ export class CompanyResponseDto {
 
   @ApiProperty()
   users?: any[];
+
+  @ApiProperty()
+  licenses?: any[];
 }

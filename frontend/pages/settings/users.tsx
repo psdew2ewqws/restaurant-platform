@@ -15,28 +15,45 @@ import { commonFields } from '../../src/schemas/common'
 // Types
 interface User {
   id: string
+  name: string
   email: string
+  username?: string
   firstName?: string
   lastName?: string
   phone?: string
-  role: 'super_admin' | 'company_owner' | 'manager' | 'callcenter' | 'cashier'
+  role: 'super_admin' | 'company_owner' | 'branch_manager' | 'call_center' | 'cashier'
   isActive: boolean
   createdAt: string
   updatedAt: string
   companyId: string
+  canManage?: boolean
+  canDelete?: boolean
+  company?: {
+    id: string
+    name: string
+  }
+}
+
+interface Company {
+  id: string
+  name: string
 }
 
 // Zod schema for form validation
 
 const createUserSchema = z.object({
-  firstName: commonFields.firstName,
-  lastName: commonFields.lastName,
+  name: z.string().min(1, 'Full name is required'),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().email('Invalid email address'),
+  username: z.string().min(3, 'Username must be at least 3 characters').optional(),
   password: commonFields.password,
   countryCode: commonFields.countryCode,
   phone: commonFields.phone,
-  role: z.enum(['branch_manager', 'call_center', 'cashier'], {
+  role: z.enum(['super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier'], {
     required_error: 'Please select a role',
   }),
+  companyId: z.string().optional(),
   isActive: z.boolean().default(true),
 }).refine((data) => {
   // Validate phone number format based on country code
@@ -48,6 +65,15 @@ const createUserSchema = z.object({
 }, {
   message: 'Invalid phone number format for selected country',
   path: ['phone']
+}).refine((data) => {
+  // Company is required when creating non-super_admin users
+  if (data.role !== 'super_admin' && (!data.companyId || data.companyId.trim() === '')) {
+    return false
+  }
+  return true
+}, {
+  message: 'Please select a company',
+  path: ['companyId']
 })
 
 type CreateUserForm = z.infer<typeof createUserSchema>
@@ -56,6 +82,8 @@ export default function UsersPage() {
   const { user } = useAuth()
   const { apiCall } = useApiClient()
   const [users, setUsers] = useState<User[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [availableRoles, setAvailableRoles] = useState<{value: string, label: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
@@ -68,6 +96,7 @@ export default function UsersPage() {
     defaultValues: {
       countryCode: '+962', // Default to Jordan
       isActive: true,
+      companyId: user?.role === 'super_admin' ? '' : user?.companyId || '',
     },
   })
 
@@ -90,10 +119,41 @@ export default function UsersPage() {
     }
   }, [apiCall])
 
-  // Load users on mount
+  // Fetch companies (only for super_admin)
+  const fetchCompanies = useCallback(async () => {
+    if (user?.role !== 'super_admin') return
+    
+    try {
+      console.log('Fetching companies for super_admin...', user)
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/list`)
+      console.log('Companies response:', data)
+      if (data) {
+        setCompanies(data.companies || [])
+        console.log('Companies set:', data.companies || [])
+      }
+    } catch (error) {
+      console.error('Error fetching companies:', error)
+    }
+  }, [apiCall, user?.role])
+
+  // Fetch available roles based on current user permissions
+  const fetchAvailableRoles = useCallback(async () => {
+    try {
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users/available-roles`)
+      if (data) {
+        setAvailableRoles(data)
+      }
+    } catch (error) {
+      console.error('Error fetching available roles:', error)
+    }
+  }, [apiCall])
+
+  // Load users, companies, and roles on mount
   useEffect(() => {
     fetchUsers()
-  }, [fetchUsers])
+    fetchCompanies()
+    fetchAvailableRoles()
+  }, [fetchUsers, fetchCompanies, fetchAvailableRoles])
 
   // Create user
   const handleCreateUser = useCallback(async (data: CreateUserForm) => {
@@ -102,9 +162,15 @@ export default function UsersPage() {
       const userData = {
         ...data,
         phone: `${data.countryCode}${data.phone}`, // Combine country code with phone number
+        status: data.isActive ? 'active' : 'inactive', // Convert isActive to status
       }
-      // Remove countryCode from the data being sent to API
-      const { countryCode, ...apiData } = userData
+      // Remove countryCode and isActive from the data being sent to API
+      const { countryCode, isActive, ...apiData } = userData
+
+      // Only include companyId if user is super_admin and has selected a company
+      if (user?.role === 'super_admin' && !data.companyId) {
+        delete apiData.companyId;
+      }
 
       const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users`, {
         method: 'POST',
@@ -123,7 +189,7 @@ export default function UsersPage() {
     } finally {
       setSubmitting(false)
     }
-  }, [apiCall, createForm, fetchUsers])
+  }, [apiCall, createForm, fetchUsers, user?.role])
 
   // Edit user
   const handleEditUser = useCallback(async (data: CreateUserForm) => {
@@ -134,9 +200,15 @@ export default function UsersPage() {
       const userData = {
         ...data,
         phone: `${data.countryCode}${data.phone}`, // Combine country code with phone number
+        status: data.isActive ? 'active' : 'inactive', // Convert isActive to status
       }
-      // Remove countryCode from the data being sent to API
-      const { countryCode, ...apiData } = userData
+      // Remove countryCode and isActive from the data being sent to API
+      const { countryCode, isActive, ...apiData } = userData
+
+      // Only include companyId if user is super_admin and has selected a company
+      if (user?.role === 'super_admin' && !data.companyId) {
+        delete apiData.companyId;
+      }
 
       const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users/${editingUser.id}`, {
         method: 'PATCH',
@@ -204,7 +276,8 @@ export default function UsersPage() {
       lastName: user.lastName,
       countryCode,
       phone: phoneNumber,
-      role: user.role as 'manager' | 'callcenter' | 'cashier',
+      role: user.role,
+      companyId: user.companyId,
       isActive: user.isActive,
     })
     setShowEditForm(true)
@@ -214,16 +287,16 @@ export default function UsersPage() {
     const roleColors = {
       super_admin: 'bg-purple-100 text-purple-800',
       company_owner: 'bg-blue-100 text-blue-800',
-      manager: 'bg-green-100 text-green-800',
-      callcenter: 'bg-blue-100 text-blue-800',
-      cashier: 'bg-gray-100 text-gray-800',
+      branch_manager: 'bg-green-100 text-green-800',
+      call_center: 'bg-indigo-100 text-indigo-800',
+      cashier: 'bg-amber-100 text-amber-800',
     }
     return roleColors[role as keyof typeof roleColors] || roleColors.cashier
   }
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={["super_admin", "company_owner"]}>
+      <ProtectedRoute allowedRoles={["super_admin", "company_owner", "branch_manager"]}>
         <div className="min-h-screen bg-gray-50 p-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center">
@@ -236,7 +309,7 @@ export default function UsersPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={["super_admin", "company_owner"]}>
+    <ProtectedRoute allowedRoles={["super_admin", "company_owner", "branch_manager"]}>
       <Head>
         <title>User Management - Restaurant Platform</title>
         <meta name="description" content="Manage users and their permissions" />
@@ -295,11 +368,11 @@ export default function UsersPage() {
                   <div className="text-xs text-gray-500 mt-1">Active</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-blue-600">{users.filter(u => u.role === 'manager').length}</div>
+                  <div className="text-lg font-semibold text-blue-600">{users.filter(u => u.role === 'branch_manager').length}</div>
                   <div className="text-xs text-gray-500 mt-1">Managers</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-indigo-600">{users.filter(u => u.role === 'callcenter').length}</div>
+                  <div className="text-lg font-semibold text-indigo-600">{users.filter(u => u.role === 'call_center').length}</div>
                   <div className="text-xs text-gray-500 mt-1">Call Center</div>
                 </div>
                 <div className="text-center">
@@ -328,7 +401,7 @@ export default function UsersPage() {
                       </h3>
                     </div>
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleBadge(user.role)}`}>
-                      {user.role.replace('_', ' ')}
+                      {user.role === 'branch_manager' ? 'Manager' : user.role.replace('_', ' ')}
                     </span>
                   </div>
                   
@@ -347,23 +420,27 @@ export default function UsersPage() {
                       </span>
                     </div>
                     
-                    {/* Edit/Delete buttons for non-admin users */}
-                    {user.role !== 'super_admin' && user.role !== 'company_owner' && (
+                    {/* Edit/Delete buttons based on permissions */}
+                    {(user.canManage || user.canDelete) && (
                       <div className="flex items-center justify-end space-x-2 pt-2">
-                        <button
-                          onClick={() => openEditForm(user)}
-                          className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
-                        >
-                          <PencilIcon className="w-3 h-3 mr-1" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.id, `${user.firstName} ${user.lastName}`)}
-                          className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                        >
-                          <TrashIcon className="w-3 h-3 mr-1" />
-                          Delete
-                        </button>
+                        {user.canManage && (
+                          <button
+                            onClick={() => openEditForm(user)}
+                            className="inline-flex items-center px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                          >
+                            <PencilIcon className="w-3 h-3 mr-1" />
+                            Edit
+                          </button>
+                        )}
+                        {user.canDelete && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id, user.name || `${user.firstName} ${user.lastName}`)}
+                            className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                          >
+                            <TrashIcon className="w-3 h-3 mr-1" />
+                            Delete
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -469,14 +546,45 @@ export default function UsersPage() {
                       className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Role</option>
-                      <option value="branch_manager">Branch Manager</option>
-                      <option value="call_center">Call Center</option>
-                      <option value="cashier">Cashier</option>
+                      {availableRoles.map((role) => (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      ))}
                     </select>
                     {editForm.formState.errors.role && (
                       <p className="mt-1 text-sm text-red-600">{editForm.formState.errors.role.message}</p>
                     )}
                   </div>
+
+                  {/* Company Selection (for super_admin only) */}
+                  {user?.role === 'super_admin' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Company/Brand 
+                        <span className="text-xs text-gray-500 ml-1">({companies.length} available)</span>
+                      </label>
+                      <select
+                        {...editForm.register('companyId')}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">{companies.length === 0 ? 'No companies available' : 'Select Company'}</option>
+                        {companies.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
+                          </option>
+                        ))}
+                      </select>
+                      {editForm.formState.errors.companyId && (
+                        <p className="mt-1 text-sm text-red-600">{editForm.formState.errors.companyId.message}</p>
+                      )}
+                      {companies.length === 0 && (
+                        <p className="mt-1 text-sm text-amber-600">
+                          No companies found. <Link href="/companies" className="text-blue-600 hover:underline">Create a company first</Link>
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="space-y-3 pt-4 border-t border-gray-200">
                     <h4 className="text-sm font-medium text-gray-900">Account Settings</h4>
@@ -541,28 +649,42 @@ export default function UsersPage() {
 
               <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="p-6">
                 <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                    <input
+                      {...createForm.register('name')}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="John Doe"
+                    />
+                    {createForm.formState.errors.name && (
+                      <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.name.message}</p>
+                    )}
+                  </div>
+
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                       <input
-                        {...createForm.register('firstName')}
+                        {...createForm.register('email')}
+                        type="email"
                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="John"
+                        placeholder="john@example.com"
                       />
-                      {createForm.formState.errors.firstName && (
-                        <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.firstName.message}</p>
+                      {createForm.formState.errors.email && (
+                        <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.email.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                       <input
-                        {...createForm.register('lastName')}
+                        {...createForm.register('username')}
                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Doe"
+                        placeholder="johndoe"
                       />
-                      {createForm.formState.errors.lastName && (
-                        <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.lastName.message}</p>
+                      {createForm.formState.errors.username && (
+                        <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.username.message}</p>
                       )}
                     </div>
                   </div>
@@ -607,6 +729,35 @@ export default function UsersPage() {
                     )}
                   </div>
 
+                  {/* Company Selection (for super_admin only) */}
+                  {user?.role === 'super_admin' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Company/Brand *
+                        <span className="text-xs text-gray-500 ml-1">({companies.length} available)</span>
+                      </label>
+                      <select
+                        {...createForm.register('companyId')}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">{companies.length === 0 ? 'No companies available' : 'Select Company'}</option>
+                        {companies.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
+                          </option>
+                        ))}
+                      </select>
+                      {createForm.formState.errors.companyId && (
+                        <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.companyId.message}</p>
+                      )}
+                      {companies.length === 0 && (
+                        <p className="mt-1 text-sm text-amber-600">
+                          No companies found. <Link href="/settings/companies" className="text-blue-600 hover:underline font-medium">Create companies here →</Link>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
                     <select
@@ -614,9 +765,11 @@ export default function UsersPage() {
                       className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Role</option>
-                      <option value="branch_manager">Branch Manager</option>
-                      <option value="call_center">Call Center</option>
-                      <option value="cashier">Cashier</option>
+                      {availableRoles.map((role) => (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      ))}
                     </select>
                     {createForm.formState.errors.role && (
                       <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.role.message}</p>

@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import Head from 'next/head'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  emailOrUsername: z.string().min(1, 'Email or username is required'),
   password: z.string().min(1, 'Password is required'),
 })
 
@@ -86,18 +86,18 @@ export default function Login() {
           <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
+                <label htmlFor="emailOrUsername" className="block text-sm font-medium text-gray-700">
+                  Email or Username
                 </label>
                 <input
-                  {...register('email')}
-                  type="email"
-                  autoComplete="email"
+                  {...register('emailOrUsername')}
+                  type="text"
+                  autoComplete="username"
                   className="mt-1 block w-full input-field"
-                  placeholder="Enter your email"
+                  placeholder="Enter your email or username"
                 />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                {errors.emailOrUsername && (
+                  <p className="mt-1 text-sm text-red-600">{errors.emailOrUsername.message}</p>
                 )}
               </div>
               

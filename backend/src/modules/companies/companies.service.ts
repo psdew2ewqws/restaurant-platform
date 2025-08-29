@@ -12,7 +12,10 @@ export class CompaniesService {
    * Create a new company (restaurant chain)
    * Inspired by Picolinate's company creation pattern
    */
-  async create(createCompanyDto: Prisma.CompanyCreateInput): Promise<Company> {
+  async create(createCompanyDto: Prisma.CompanyCreateInput & { 
+    licenseType?: 'trial' | 'active' | 'premium', 
+    licenseDuration?: number 
+  }): Promise<Company> {
     try {
       // Check if slug already exists
       const existingCompany = await this.prisma.company.findUnique({
@@ -23,18 +26,60 @@ export class CompaniesService {
         throw new ConflictException(`Company with slug '${createCompanyDto.slug}' already exists`);
       }
 
-      const company = await this.prisma.company.create({
-        data: {
-          ...createCompanyDto,
-          status: createCompanyDto.status || 'trial', // Default to trial like Picolinate
-        },
+      // Use transaction to create company and license together
+      const result = await this.prisma.$transaction(async (prisma) => {
+        // Extract license-specific fields from DTO
+        const { licenseType, licenseDuration, ...companyData } = createCompanyDto;
+        
+        // Create company
+        const company = await prisma.company.create({
+          data: {
+            ...companyData,
+            status: companyData.status || 'trial',
+          },
+        });
+
+        // Create default license based on type with day-based system  
+        const licenseTypeValue = licenseType || 'trial';
+        // Convert months to days if licenseDuration is provided (assuming months)
+        const licenseDurationDays = licenseDuration ? licenseDuration * 30 : this.getDefaultDaysForLicenseType(licenseTypeValue);
+        
+        const startDate = new Date();
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + licenseDurationDays);
+
+        await prisma.license.create({
+          data: {
+            companyId: company.id,
+            type: licenseTypeValue,
+            status: 'active',
+            startDate,
+            expiresAt,
+            totalDays: licenseDurationDays,
+            daysRemaining: licenseDurationDays,
+            lastChecked: startDate,
+            features: this.getFeaturesForLicenseType(licenseTypeValue),
+          },
+        });
+
+        return company;
+      });
+
+      // Fetch the company with all relations
+      const company = await this.prisma.company.findUnique({
+        where: { id: result.id },
         include: {
           branches: true,
           users: true,
+          licenses: {
+            where: { status: 'active' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
       });
 
-      this.logger.log(`Created company: ${company.name} (${company.slug})`);
+      this.logger.log(`Created company: ${company.name} (${company.slug}) with license`);
       return company;
     } catch (error) {
       this.logger.error(`Failed to create company: ${error.message}`);
@@ -139,25 +184,79 @@ export class CompaniesService {
   /**
    * Update company information
    */
-  async update(id: string, updateCompanyDto: Prisma.CompanyUpdateInput): Promise<Company> {
+  async update(id: string, updateCompanyDto: Prisma.CompanyUpdateInput & { 
+    licenseType?: 'trial' | 'active' | 'premium', 
+    licenseDuration?: number 
+  }): Promise<Company> {
     try {
-      const company = await this.prisma.company.update({
-        where: { 
-          id,
-          deletedAt: null,
-        },
-        data: {
-          ...updateCompanyDto,
-          updatedAt: new Date(),
-        },
-        include: {
-          branches: true,
-          users: true,
-        },
+      const result = await this.prisma.$transaction(async (prisma) => {
+        // Extract license-specific fields from DTO
+        const { licenseType, licenseDuration, ...companyData } = updateCompanyDto;
+        
+        // Update company
+        const company = await prisma.company.update({
+          where: { 
+            id,
+            deletedAt: null,
+          },
+          data: {
+            ...companyData,
+            updatedAt: new Date(),
+          },
+          include: {
+            branches: true,
+            users: true,
+          },
+        });
+
+        // Update license if license fields are provided
+        if (licenseType !== undefined || licenseDuration !== undefined) {
+          const currentLicense = await prisma.license.findFirst({
+            where: {
+              companyId: id,
+              status: { in: ['active', 'expired'] },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (currentLicense) {
+            const updateData: any = {};
+            
+            if (licenseType !== undefined) {
+              updateData.type = licenseType;
+              updateData.features = this.getFeaturesForLicenseType(licenseType);
+            }
+
+            if (licenseDuration !== undefined) {
+              // Convert months to days
+              const additionalDays = licenseDuration * 30;
+              const now = new Date();
+              const newExpiresAt = new Date();
+              newExpiresAt.setDate(newExpiresAt.getDate() + additionalDays);
+              
+              const newDaysRemaining = Math.ceil((newExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+              updateData.expiresAt = newExpiresAt;
+              updateData.daysRemaining = newDaysRemaining;
+              updateData.totalDays = currentLicense.totalDays + additionalDays;
+              updateData.lastChecked = now;
+              updateData.status = 'active'; // Reactivate if updating duration
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              await prisma.license.update({
+                where: { id: currentLicense.id },
+                data: updateData,
+              });
+            }
+          }
+        }
+
+        return company;
       });
 
-      this.logger.log(`Updated company: ${company.name} (${company.id})`);
-      return company;
+      this.logger.log(`Updated company: ${result.name} (${result.id})`);
+      return result;
     } catch (error) {
       if (error.code === 'P2025') {
         throw new NotFoundException(`Company with id '${id}' not found`);
@@ -247,6 +346,35 @@ export class CompaniesService {
   }
 
   /**
+   * Get simple list of companies for dropdowns (super_admin only)
+   */
+  async getCompaniesList() {
+    try {
+      const companies = await this.prisma.company.findMany({
+        where: {
+          deletedAt: null,
+          status: {
+            not: 'suspended',
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+        orderBy: {
+          name: 'asc',
+        },
+      });
+
+      return { companies };
+    } catch (error) {
+      this.logger.error(`Failed to get companies list: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Check if company exists and is active
    */
   async exists(identifier: string): Promise<boolean> {
@@ -268,6 +396,135 @@ export class CompaniesService {
     } catch (error) {
       this.logger.error(`Failed to check if company exists '${identifier}': ${error.message}`);
       return false;
+    }
+  }
+
+  /**
+   * License helper methods
+   */
+  private getDefaultDaysForLicenseType(licenseType: string): number {
+    switch (licenseType) {
+      case 'trial': return 30; // 30 days trial
+      case 'active': return 365; // 1 year
+      case 'premium': return 365; // 1 year
+      default: return 30;
+    }
+  }
+
+
+  private getFeaturesForLicenseType(licenseType: string): string[] {
+    switch (licenseType) {
+      case 'trial': return ['basic'];
+      case 'active': return ['analytics', 'multi_location'];
+      case 'premium': return ['analytics', 'advanced_reporting', 'multi_location', 'api_access'];
+      default: return ['basic'];
+    }
+  }
+
+  /**
+   * Update license days remaining and check expiration
+   */
+  async updateLicenseStatus(companyId: string): Promise<void> {
+    try {
+      const licenses = await this.prisma.license.findMany({
+        where: {
+          companyId,
+          status: 'active',
+        },
+      });
+
+      for (const license of licenses) {
+        const now = new Date();
+        const daysRemaining = Math.ceil((license.expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysRemaining <= 0) {
+          // License expired - deactivate
+          await this.prisma.license.update({
+            where: { id: license.id },
+            data: {
+              status: 'expired',
+              daysRemaining: 0,
+              lastChecked: now,
+            },
+          });
+
+          // Also update company status if all licenses expired
+          const activeLicenses = await this.prisma.license.count({
+            where: {
+              companyId,
+              status: 'active',
+            },
+          });
+
+          if (activeLicenses === 0) {
+            await this.prisma.company.update({
+              where: { id: companyId },
+              data: { status: 'suspended' },
+            });
+          }
+
+          this.logger.warn(`License expired for company ${companyId}. Days remaining: ${daysRemaining}`);
+        } else {
+          // Update days remaining
+          await this.prisma.license.update({
+            where: { id: license.id },
+            data: {
+              daysRemaining,
+              lastChecked: now,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Failed to update license status for company ${companyId}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Renew license for a company
+   */
+  async renewLicense(companyId: string, additionalDays: number): Promise<void> {
+    try {
+      const license = await this.prisma.license.findFirst({
+        where: {
+          companyId,
+          status: { in: ['active', 'expired'] },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!license) {
+        throw new Error('No license found for company');
+      }
+
+      const now = new Date();
+      const newExpiresAt = new Date(Math.max(license.expiresAt.getTime(), now.getTime()));
+      newExpiresAt.setDate(newExpiresAt.getDate() + additionalDays);
+
+      const newDaysRemaining = Math.ceil((newExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      await this.prisma.license.update({
+        where: { id: license.id },
+        data: {
+          status: 'active',
+          expiresAt: newExpiresAt,
+          daysRemaining: newDaysRemaining,
+          totalDays: license.totalDays + additionalDays,
+          renewedAt: now,
+          lastChecked: now,
+        },
+      });
+
+      // Reactivate company if it was suspended due to expired license
+      await this.prisma.company.update({
+        where: { id: companyId },
+        data: { status: 'active' },
+      });
+
+      this.logger.log(`License renewed for company ${companyId}. Added ${additionalDays} days.`);
+    } catch (error) {
+      this.logger.error(`Failed to renew license for company ${companyId}: ${error.message}`);
+      throw error;
     }
   }
 }

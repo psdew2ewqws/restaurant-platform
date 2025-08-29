@@ -13,6 +13,8 @@ import {
 // import { EyeIcon } from '@heroicons/react/24/outline'
 import ProtectedRoute from '../src/components/ProtectedRoute'
 import { useAuth } from '../src/contexts/AuthContext'
+import { useLicense } from '../src/contexts/LicenseContext'
+import LicenseWarningHeader from '../src/components/LicenseWarningHeader'
 import { useApiClient } from '../src/hooks/useApiClient'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -47,6 +49,10 @@ interface Branch {
   createdAt: string
   updatedAt: string
   companyId: string
+  company?: {
+    id: string
+    name: string
+  }
 }
 
 
@@ -87,6 +93,7 @@ type UpdateBranchForm = z.infer<typeof updateBranchSchema>
 export default function BranchesPage() {
   const { user } = useAuth()
   const { apiCall } = useApiClient()
+  const { license, trackFeatureUsage } = useLicense()
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -145,8 +152,15 @@ export default function BranchesPage() {
 
   // Create branch
   const handleCreateBranch = useCallback(async (data: CreateBranchForm) => {
+    if (license?.is_expired) {
+      toast.error('Your license has expired! Please renew to create new branches.')
+      return
+    }
+
     setSubmitting(true)
     try {
+      // Track feature usage
+      await trackFeatureUsage('branch_creation', { branch_name: data.name })
       const branchData = {
         ...data,
         phone: `${data.countryCode}${data.phone}`, // Combine country code with phone number
@@ -303,7 +317,7 @@ export default function BranchesPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={["super_admin", "company_owner"]}>
+      <ProtectedRoute allowedRoles={["super_admin", "company_owner", "branch_manager"]}>
         <div className="min-h-screen bg-gray-50 p-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center">
@@ -316,13 +330,15 @@ export default function BranchesPage() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={["super_admin", "company_owner"]}>
+    <ProtectedRoute allowedRoles={["super_admin", "company_owner", "branch_manager"]}>
       <Head>
         <title>Restaurant Branches - Management Dashboard</title>
         <meta name="description" content="Manage your restaurant branches and locations" />
       </Head>
       
       <div className="min-h-screen bg-gray-50">
+        {/* License Warning Header */}
+        <LicenseWarningHeader />
         {/* Simple B2B Header - Match Dashboard Style */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -336,15 +352,46 @@ export default function BranchesPage() {
                 <div className="h-6 w-px bg-gray-300"></div>
                 <div className="flex items-center space-x-2">
                   <BuildingIcon className="w-5 h-5 text-gray-600" />
-                  <h1 className="text-lg font-semibold text-gray-900">Branch Management</h1>
+                  <div>
+                    <h1 className="text-lg font-semibold text-gray-900">Branch Management</h1>
+                    {branches.length > 0 && branches[0].company && (
+                      <p className="text-sm text-gray-500">{branches[0].company.name} - Restaurant Locations</p>
+                    )}
+                  </div>
                 </div>
               </div>
               
               {/* Right Side Actions */}
               <div className="flex items-center space-x-3">
+                {/* License Info */}
+                {license && (
+                  <div className="text-xs text-gray-500 text-right">
+                    <div>Branches: {branches.length}</div>
+                    <div className={`${license.is_expired ? 'text-red-600' : license.is_near_expiry ? 'text-amber-600' : ''}`}>
+                      {license.is_expired ? 'License Expired' : `${license.days_remaining}d left`}
+                    </div>
+                  </div>
+                )}
+                
                 <button 
-                  onClick={() => setShowCreateForm(true)}
-                  className="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  onClick={() => {
+                    if (license?.is_expired) {
+                      toast.error('Your license has expired! Please renew to create new branches.')
+                      return
+                    }
+                    setShowCreateForm(true)
+                  }}
+                  disabled={license?.is_expired}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    license?.is_expired
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      : 'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-500'
+                  }`}
+                  title={
+                    license?.is_expired 
+                      ? 'License expired - renew to create branches'
+                      : 'Add new branch'
+                  }
                 >
                   <PlusIcon className="w-4 h-4 mr-2" />
                   Add Branch
@@ -360,7 +407,9 @@ export default function BranchesPage() {
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Restaurant Branches</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {branches.length > 0 && branches[0].company ? `${branches[0].company.name} - Branches` : 'Restaurant Branches'}
+                  </h2>
                   <p className="text-sm text-gray-600">Manage your restaurant locations</p>
                 </div>
                 <div className="text-right">
@@ -403,6 +452,13 @@ export default function BranchesPage() {
                 <div key={branch.id} className="bg-white rounded-lg shadow border p-6 hover:shadow-lg transition-shadow flex flex-col h-full">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
+                      {branch.company && (
+                        <div className="mb-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                            {branch.company.name}
+                          </span>
+                        </div>
+                      )}
                       <h3 className="text-lg font-bold text-gray-900 mb-1">{branch.name}</h3>
                       {branch.nameAr && (
                         <p className="text-sm text-gray-600 mb-2" dir="rtl">{branch.nameAr}</p>
@@ -1017,8 +1073,14 @@ export default function BranchesPage() {
                     <div>
                       <h4 className="text-sm font-medium text-gray-900 mb-3">Basic Information</h4>
                       <div className="space-y-3">
+                        {selectedBranch.company && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-500">Brand/Company</label>
+                            <p className="text-sm text-gray-900 font-medium">{selectedBranch.company.name}</p>
+                          </div>
+                        )}
                         <div>
-                          <label className="block text-sm font-medium text-gray-500">Name</label>
+                          <label className="block text-sm font-medium text-gray-500">Branch Name</label>
                           <p className="text-sm text-gray-900">{selectedBranch.name}</p>
                         </div>
                         {selectedBranch.nameAr && (

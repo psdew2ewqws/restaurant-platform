@@ -4,6 +4,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import { LanguageProvider } from '../src/contexts/LanguageContext'
 import { AuthProvider } from '../src/contexts/AuthContext'
+import { LicenseProvider } from '../src/contexts/LicenseContext'
 import '../styles/globals.css'
 
 const queryClient = new QueryClient({
@@ -19,11 +20,13 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <LanguageProvider>
-          <Component {...pageProps} />
-          <Toaster position="top-right" />
-          <ReactQueryDevtools initialIsOpen={false} />
-        </LanguageProvider>
+        <LicenseProvider>
+          <LanguageProvider>
+            <Component {...pageProps} />
+            <Toaster position="top-right" />
+            <ReactQueryDevtools initialIsOpen={false} />
+          </LanguageProvider>
+        </LicenseProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

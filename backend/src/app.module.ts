@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { UsersModule } from './modules/users/users.module';
+import { LicensesModule } from './modules/licenses/licenses.module';
 
 // Configuration
 import { appConfig } from './config/app.config';
@@ -33,6 +34,7 @@ import { CommonModule } from './common/common.module';
     CompaniesModule,
     BranchesModule,
     UsersModule,
+    LicensesModule,
   ],
   controllers: [],
   providers: [],

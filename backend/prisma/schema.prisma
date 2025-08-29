@@ -25,8 +25,30 @@ model Company {
   updatedBy             String?       @map("updated_by")
   branches              Branch[]
   users                 User[]
+  licenses              License[]
 
   @@map("companies")
+}
+
+model License {
+  id            String        @id @default(uuid())
+  companyId     String        @map("company_id")
+  type          LicenseType   @default(trial)
+  status        LicenseStatus @default(active)
+  startDate     DateTime      @default(now()) @map("start_date")
+  expiresAt     DateTime      @map("expires_at")
+  daysRemaining Int           @default(0) @map("days_remaining") // Calculated field updated daily
+  totalDays     Int           @default(30) @map("total_days") // Total licensed days
+  features      Json?         // JSON array of enabled features
+  lastChecked   DateTime?     @map("last_checked") // Last time license status was checked
+  renewedAt     DateTime?     @map("renewed_at") // Last renewal date
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  createdBy     String?       @map("created_by")
+  updatedBy     String?       @map("updated_by")
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("licenses")
 }
 
 model Branch {
@@ -66,6 +88,7 @@ model User {
   firstName           String?           @map("first_name")
   lastName            String?           @map("last_name")
   email               String            @unique
+  username            String?           @unique
   phone               String?
   avatarUrl           String?           @map("avatar_url")
   passwordHash        String            @map("password_hash")
@@ -137,6 +160,8 @@ enum UserRole {
   branch_manager
   cashier
   call_center
+
+  @@map("user_role")
 }
 
 enum UserStatus {
@@ -144,6 +169,8 @@ enum UserStatus {
   inactive
   suspended
   pending
+
+  @@map("user_status")
 }
 
 enum CompanyStatus {
@@ -151,4 +178,23 @@ enum CompanyStatus {
   inactive
   suspended
   trial
+
+  @@map("company_status")
+}
+
+enum LicenseType {
+  trial
+  active
+  premium
+
+  @@map("license_type")
+}
+
+enum LicenseStatus {
+  active
+  expired
+  suspended
+  cancelled
+
+  @@map("license_status")
 }

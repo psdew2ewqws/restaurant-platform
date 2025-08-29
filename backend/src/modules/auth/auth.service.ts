@@ -12,14 +12,26 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async login(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+  async login(emailOrUsername: string, password: string) {
+    // Try to find user by email first, then by username
+    let user = await this.prisma.user.findUnique({
+      where: { email: emailOrUsername },
       include: {
         company: true,
         branch: true,
       },
     });
+
+    // If not found by email and the input doesn't look like an email, try username
+    if (!user && !emailOrUsername.includes('@')) {
+      user = await this.prisma.user.findUnique({
+        where: { username: emailOrUsername },
+        include: {
+          company: true,
+          branch: true,
+        },
+      });
+    }
 
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException('Invalid credentials');

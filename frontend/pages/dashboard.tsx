@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { useLanguage } from '../src/contexts/LanguageContext'
 import { useAuth } from '../src/contexts/AuthContext'
 import ProtectedRoute from '../src/components/ProtectedRoute'
+import LicenseWarningHeader from '../src/components/LicenseWarningHeader'
 import { 
   ChartBarIcon,
   ClockIcon,
@@ -192,6 +193,13 @@ export default function Dashboard() {
     return timeFormatter.format(date)
   }, [timeFormatter, mounted])
 
+  // Debug user role
+  useEffect(() => {
+    console.log('Dashboard user object:', user);
+    console.log('User role:', user?.role);
+    console.log('Is super_admin?', user?.role === 'super_admin');
+  }, [user]);
+
   // Memoize business modules to avoid recreation on every render
   const businessModules = useMemo(() => [
     {
@@ -242,10 +250,14 @@ export default function Dashboard() {
         { name: 'Chatbot', href: '/settings/chatbot', icon: ChatBubbleLeftRightIcon },
         { name: 'Delivery', href: '/settings/delivery', icon: TruckIcon },
         { name: 'Users', href: '/settings/users', icon: UsersIcon },
+        ...(user?.role === 'super_admin' ? [
+          { name: 'Companies', href: '/settings/companies', icon: BuildingOfficeIcon },
+          { name: 'Licenses', href: '/settings/licenses', icon: DocumentTextIcon }
+        ] : []),
         { name: 'Phone Ordering', href: '/settings/phone', icon: PhoneIcon }
       ]
     }
-  ], [])
+  ], [user])
 
   // Memoize order status configurations
   const orderStatusConfigs = useMemo(() => ({
@@ -294,6 +306,8 @@ export default function Dashboard() {
       
       {/* Clean Professional Dashboard - Always LTR */}
       <div className="min-h-screen bg-gray-50 dashboard-layout">
+        {/* License Warning Header - Always at the top */}
+        <LicenseWarningHeader />
         {/* Compact Professional Header */}
         <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 lg:px-6">

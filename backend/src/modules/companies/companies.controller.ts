@@ -84,6 +84,17 @@ export class CompaniesController {
     });
   }
 
+  @Get('list')
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Get simple companies list for dropdowns' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Simple list of companies',
+  })
+  async getCompaniesList() {
+    return this.companiesService.getCompaniesList();
+  }
+
   @Get('my')
   @Roles('company_owner', 'branch_manager', 'cashier', 'call_center')
   @ApiOperation({ summary: 'Get current user\'s company' })

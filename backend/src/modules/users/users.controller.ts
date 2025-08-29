@@ -14,6 +14,7 @@ import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CreateUserDto, UpdateUserDto } from './dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -34,11 +35,19 @@ export class UsersController {
     return this.usersService.findAll(currentUser, parseInt(page) || 1, parseInt(limit) || 10);
   }
 
+  @Get('available-roles')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  @ApiOperation({ summary: 'Get available roles for current user' })
+  @ApiResponse({ status: 200, description: 'Available roles retrieved successfully' })
+  async getAvailableRoles(@CurrentUser() currentUser: any) {
+    return this.usersService.getAvailableRoles(currentUser);
+  }
+
   @Post()
   @Roles('super_admin', 'company_owner', 'branch_manager')
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
-  async create(@Body() createUserDto: any, @CurrentUser() currentUser: any) {
+  async create(@Body() createUserDto: CreateUserDto, @CurrentUser() currentUser: any) {
     return this.usersService.create(createUserDto, currentUser);
   }
 
@@ -63,14 +72,14 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   async update(
     @Param('id') id: string,
-    @Body() updateUserDto: any,
+    @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() currentUser: any,
   ) {
     return this.usersService.update(id, updateUserDto, currentUser);
   }
 
   @Delete(':id')
-  @Roles('super_admin', 'company_owner')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
   @ApiOperation({ summary: 'Delete user' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   async remove(@Param('id') id: string, @CurrentUser() currentUser: any) {
