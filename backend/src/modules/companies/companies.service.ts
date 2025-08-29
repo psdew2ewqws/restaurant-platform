@@ -13,7 +13,6 @@ export class CompaniesService {
    * Inspired by Picolinate's company creation pattern
    */
   async create(createCompanyDto: Prisma.CompanyCreateInput & { 
-    licenseType?: 'trial' | 'active' | 'premium', 
     licenseDuration?: number 
   }): Promise<Company> {
     try {
@@ -29,7 +28,7 @@ export class CompaniesService {
       // Use transaction to create company and license together
       const result = await this.prisma.$transaction(async (prisma) => {
         // Extract license-specific fields from DTO
-        const { licenseType, licenseDuration, ...companyData } = createCompanyDto;
+        const { licenseDuration, ...companyData } = createCompanyDto;
         
         // Create company
         const company = await prisma.company.create({
@@ -39,10 +38,9 @@ export class CompaniesService {
           },
         });
 
-        // Create default license based on type with day-based system  
-        const licenseTypeValue = licenseType || 'trial';
+        // Create default license with day-based system  
         // Convert months to days if licenseDuration is provided (assuming months)
-        const licenseDurationDays = licenseDuration ? licenseDuration * 30 : this.getDefaultDaysForLicenseType(licenseTypeValue);
+        const licenseDurationDays = licenseDuration ? licenseDuration * 30 : this.getDefaultDaysForCompanyStatus(companyData.status || 'trial');
         
         const startDate = new Date();
         const expiresAt = new Date();
@@ -51,14 +49,13 @@ export class CompaniesService {
         await prisma.license.create({
           data: {
             companyId: company.id,
-            type: licenseTypeValue,
             status: 'active',
             startDate,
             expiresAt,
             totalDays: licenseDurationDays,
             daysRemaining: licenseDurationDays,
             lastChecked: startDate,
-            features: this.getFeaturesForLicenseType(licenseTypeValue),
+            features: this.getFeaturesForCompanyStatus(companyData.status || 'trial'),
           },
         });
 
@@ -185,13 +182,12 @@ export class CompaniesService {
    * Update company information
    */
   async update(id: string, updateCompanyDto: Prisma.CompanyUpdateInput & { 
-    licenseType?: 'trial' | 'active' | 'premium', 
     licenseDuration?: number 
   }): Promise<Company> {
     try {
       const result = await this.prisma.$transaction(async (prisma) => {
         // Extract license-specific fields from DTO
-        const { licenseType, licenseDuration, ...companyData } = updateCompanyDto;
+        const { licenseDuration, ...companyData } = updateCompanyDto;
         
         // Update company
         const company = await prisma.company.update({
@@ -209,8 +205,8 @@ export class CompaniesService {
           },
         });
 
-        // Update license if license fields are provided
-        if (licenseType !== undefined || licenseDuration !== undefined) {
+        // Update license if license fields are provided or company status changed
+        if (licenseDuration !== undefined || companyData.status !== undefined) {
           const currentLicense = await prisma.license.findFirst({
             where: {
               companyId: id,
@@ -222,9 +218,8 @@ export class CompaniesService {
           if (currentLicense) {
             const updateData: any = {};
             
-            if (licenseType !== undefined) {
-              updateData.type = licenseType;
-              updateData.features = this.getFeaturesForLicenseType(licenseType);
+            if (companyData.status !== undefined) {
+              updateData.features = this.getFeaturesForCompanyStatus(companyData.status as string);
             }
 
             if (licenseDuration !== undefined) {
@@ -402,21 +397,19 @@ export class CompaniesService {
   /**
    * License helper methods
    */
-  private getDefaultDaysForLicenseType(licenseType: string): number {
-    switch (licenseType) {
+  private getDefaultDaysForCompanyStatus(status: string): number {
+    switch (status) {
       case 'trial': return 30; // 30 days trial
       case 'active': return 365; // 1 year
-      case 'premium': return 365; // 1 year
       default: return 30;
     }
   }
 
 
-  private getFeaturesForLicenseType(licenseType: string): string[] {
-    switch (licenseType) {
+  private getFeaturesForCompanyStatus(status: string): string[] {
+    switch (status) {
       case 'trial': return ['basic'];
       case 'active': return ['analytics', 'multi_location'];
-      case 'premium': return ['analytics', 'advanced_reporting', 'multi_location', 'api_access'];
       default: return ['basic'];
     }
   }

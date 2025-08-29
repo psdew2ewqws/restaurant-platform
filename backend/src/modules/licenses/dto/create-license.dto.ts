@@ -2,11 +2,6 @@ import { IsString, IsOptional, IsInt, IsArray, IsEnum, Min, Max, IsBoolean, IsJS
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 
-export enum LicenseTypeEnum {
-  TRIAL = 'trial',
-  ACTIVE = 'active',
-  PREMIUM = 'premium'
-}
 
 export class CreateLicenseDto {
   @ApiProperty({
@@ -16,13 +11,6 @@ export class CreateLicenseDto {
   @IsString()
   companyId: string;
 
-  @ApiProperty({
-    description: 'License type',
-    enum: LicenseTypeEnum,
-    example: LicenseTypeEnum.PREMIUM
-  })
-  @IsEnum(LicenseTypeEnum)
-  type: LicenseTypeEnum;
 
   @ApiPropertyOptional({
     description: 'License duration in days',

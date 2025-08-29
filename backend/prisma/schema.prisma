@@ -33,7 +33,6 @@ model Company {
 model License {
   id            String        @id @default(uuid())
   companyId     String        @map("company_id")
-  type          LicenseType   @default(trial)
   status        LicenseStatus @default(active)
   startDate     DateTime      @default(now()) @map("start_date")
   expiresAt     DateTime      @map("expires_at")
@@ -182,13 +181,6 @@ enum CompanyStatus {
   @@map("company_status")
 }
 
-enum LicenseType {
-  trial
-  active
-  premium
-
-  @@map("license_type")
-}
 
 enum LicenseStatus {
   active

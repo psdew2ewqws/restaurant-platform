@@ -31,10 +31,6 @@ export class CreateCompanyDto {
   @IsString()
   defaultCurrency?: string;
 
-  @ApiProperty({ description: 'License type', enum: LicenseType, default: LicenseType.trial })
-  @IsOptional()
-  @IsEnum(LicenseType)
-  licenseType?: LicenseType;
 
   @ApiProperty({ description: 'License duration in months', default: 1, minimum: 1, maximum: 60 })
   @IsOptional()
@@ -75,10 +71,6 @@ export class UpdateCompanyDto {
   @IsEnum(CompanyStatus)
   status?: CompanyStatus;
 
-  @ApiProperty({ description: 'License type', enum: LicenseType, required: false })
-  @IsOptional()
-  @IsEnum(LicenseType)
-  licenseType?: LicenseType;
 
   @ApiProperty({ description: 'License duration in months', minimum: 1, maximum: 60, required: false })
   @IsOptional()

@@ -14,7 +14,7 @@ export class LicensesService {
    * Create a new license for a company
    */
   async create(createLicenseDto: CreateLicenseDto, userId: string) {
-    const { companyId, type, durationDays = 30, features = [] } = createLicenseDto;
+    const { companyId, durationDays = 30, features = [] } = createLicenseDto;
 
     // Check if company exists
     const company = await this.prisma.company.findUnique({
@@ -33,8 +33,8 @@ export class LicensesService {
       }
     });
 
-    if (existingLicense && type !== 'premium') {
-      throw new BadRequestException('Company already has an active license. Upgrade to premium or wait for expiry.');
+    if (existingLicense) {
+      throw new BadRequestException('Company already has an active license. Wait for expiry or contact support.');
     }
 
     const startDate = new Date();
@@ -45,7 +45,6 @@ export class LicensesService {
     const license = await this.prisma.license.create({
       data: {
         companyId,
-        type,
         status: 'active',
         startDate,
         expiresAt,
@@ -68,22 +67,9 @@ export class LicensesService {
       }
     });
 
-    // If this is a premium license, deactivate any existing licenses
-    if (type === 'premium') {
-      await this.prisma.license.updateMany({
-        where: {
-          companyId,
-          id: { not: license.id },
-          status: 'active'
-        },
-        data: {
-          status: 'cancelled',
-          updatedBy: userId
-        }
-      });
-    }
+    // Only one active license per company is allowed
 
-    this.logger.log(`Created ${type} license for company ${company.name} (${durationDays} days)`);
+    this.logger.log(`Created license for company ${company.name} (${durationDays} days)`);
     return license;
   }
 
@@ -189,10 +175,9 @@ export class LicensesService {
     });
 
     if (!license) {
-      // Return a default trial license info
+      // Return a default expired license info
       return {
         id: null,
-        type: 'trial',
         status: 'expired',
         daysRemaining: 0,
         isExpired: true,
@@ -312,14 +297,24 @@ export class LicensesService {
       activeLicenses,
       expiredLicenses,
       trialLicenses,
-      premiumLicenses,
+      activeLicensesOfType,
       expiringLicenses
     ] = await Promise.all([
       this.prisma.license.count(),
       this.prisma.license.count({ where: { status: 'active' } }),
       this.prisma.license.count({ where: { status: 'expired' } }),
-      this.prisma.license.count({ where: { type: 'trial', status: 'active' } }),
-      this.prisma.license.count({ where: { type: 'premium', status: 'active' } }),
+      this.prisma.license.count({ 
+        where: { 
+          status: 'active',
+          company: { status: 'trial' }
+        }
+      }),
+      this.prisma.license.count({ 
+        where: { 
+          status: 'active',
+          company: { status: 'active' }
+        }
+      }),
       this.prisma.license.count({
         where: {
           status: 'active',
@@ -336,7 +331,7 @@ export class LicensesService {
       active: activeLicenses,
       expired: expiredLicenses,
       trial: trialLicenses,
-      premium: premiumLicenses,
+      activeType: activeLicensesOfType,
       expiringIn30Days: expiringLicenses,
       estimatedMonthlyRevenue: estimatedMonthlyRevenue
     };

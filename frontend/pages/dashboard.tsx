@@ -251,8 +251,7 @@ export default function Dashboard() {
         { name: 'Delivery', href: '/settings/delivery', icon: TruckIcon },
         { name: 'Users', href: '/settings/users', icon: UsersIcon },
         ...(user?.role === 'super_admin' ? [
-          { name: 'Companies', href: '/settings/companies', icon: BuildingOfficeIcon },
-          { name: 'Licenses', href: '/settings/licenses', icon: DocumentTextIcon }
+          { name: 'Companies', href: '/settings/companies', icon: BuildingOfficeIcon }
         ] : []),
         { name: 'Phone Ordering', href: '/settings/phone', icon: PhoneIcon }
       ]

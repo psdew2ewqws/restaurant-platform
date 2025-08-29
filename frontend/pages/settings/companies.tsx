@@ -45,7 +45,6 @@ interface Company {
   }
   license?: {
     id: string
-    type: 'trial' | 'active' | 'premium'
     status: 'active' | 'expired' | 'suspended' | 'cancelled'
     daysRemaining: number
     expiresAt: string
@@ -79,7 +78,6 @@ const createCompanySchema = z.object({
   businessType: z.string().optional(),
   timezone: z.string().default('Asia/Amman'),
   defaultCurrency: z.string().default('JOD'),
-  licenseType: z.enum(['trial', 'active', 'premium']).default('trial'),
   licenseDuration: z.number().min(1).max(60).default(1),
 })
 
@@ -258,7 +256,9 @@ export default function CompaniesPage() {
     setSubmitting(true)
     try {
       // Remove fields that shouldn't be sent to backend
-      const { slug, licenseType, licenseDuration, ...updateData } = data
+      const { slug, licenseDuration, ...updateData } = data
+      
+      console.log('🔧 Sending update data:', updateData)
       
       const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/${selectedCompany.id}`, {
         method: 'PATCH',
@@ -266,11 +266,17 @@ export default function CompaniesPage() {
       })
 
       if (response) {
+        console.log('✅ Company update successful, response:', response)
         toast.success('Company updated successfully!')
         editForm.reset()
         setShowEditForm(false)
         setSelectedCompany(null)
         fetchCompanies()
+        // Refresh license data after update
+        setTimeout(() => {
+          console.log('🔄 Refreshing license data after company update...')
+          setCompanyLicenses({})
+        }, 500)
       }
     } catch (error) {
       console.error('Error updating company:', error)
@@ -316,7 +322,6 @@ export default function CompaniesPage() {
       timezone: company.timezone,
       defaultCurrency: company.defaultCurrency,
       status: company.status,
-      licenseType: license?.type || 'trial',
     })
     setShowEditForm(true)
   }, [editForm, fetchCompanyLicense, companyLicenses])
@@ -762,24 +767,7 @@ export default function CompaniesPage() {
                   </div>
 
                   {/* License Fields */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="licenseType" className="block text-sm font-medium text-gray-700 mb-1">
-                        License Type
-                      </label>
-                      <select
-                        {...createForm.register('licenseType')}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="trial">Trial</option>
-                        <option value="active">Active</option>
-                        <option value="premium">Premium</option>
-                      </select>
-                      {createForm.formState.errors.licenseType && (
-                        <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.licenseType.message}</p>
-                      )}
-                    </div>
-
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label htmlFor="licenseDuration" className="block text-sm font-medium text-gray-700 mb-1">
                         License Duration (months)
@@ -922,24 +910,6 @@ export default function CompaniesPage() {
                   </div>
 
                   {/* License Fields */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="licenseType" className="block text-sm font-medium text-gray-700 mb-1">
-                        License Type
-                      </label>
-                      <select
-                        {...editForm.register('licenseType')}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="trial">Trial</option>
-                        <option value="active">Active</option>
-                        <option value="premium">Premium</option>
-                      </select>
-                      {editForm.formState.errors.licenseType && (
-                        <p className="mt-1 text-sm text-red-600">{editForm.formState.errors.licenseType.message}</p>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
