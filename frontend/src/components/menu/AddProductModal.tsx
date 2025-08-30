@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { 
   XMarkIcon, 
   PlusIcon, 
@@ -146,6 +146,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   
   // Preparation time is always auto-calculated
   const useAutoPreparationTime = true;
+
+  // Filter categories based on selected company for super_admin users
+  const availableCategories = useMemo(() => {
+    if (user?.role === 'super_admin' && companyId) {
+      // For super_admin: only show categories that belong to the selected company
+      return categories.filter(category => category.companyId === companyId);
+    }
+    // For regular users: show all categories (already filtered by backend)
+    return categories;
+  }, [categories, user?.role, companyId]);
   
   // Images
   const [productImages, setProductImages] = useState<ProductImages>({
@@ -476,8 +486,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     try {
       setLoading(true);
       const productData = {
-        names: Object.fromEntries(nameFields.map(field => [field.code, field.value])),
-        descriptions: Object.fromEntries(descriptionFields.map(field => [field.code, field.value])),
+        name: Object.fromEntries(nameFields.map(field => [field.code, field.value])),
+        description: Object.fromEntries(descriptionFields.map(field => [field.code, field.value])),
         categoryId,
         basePrice,
         priority: priority || 1,
@@ -485,9 +495,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         status,
         companyId: user?.role === 'super_admin' ? companyId : user?.companyId,
         images: productImages.files,
-        pricing: Object.fromEntries(
-          pricingChannels.filter(channel => channel.enabled).map(channel => [channel.id, channel.price])
-        )
+        pricing: {
+          ...Object.fromEntries(
+            pricingChannels.filter(channel => channel.enabled).map(channel => [channel.id, channel.price])
+          ),
+          customChannels: customChannels.filter(channel => channel.enabled)
+        }
       };
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products`, {
@@ -591,8 +604,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
-                    <option value="">Select a category</option>
-                    {categories.map((category) => (
+                    <option value="">
+                      {availableCategories.length === 0 && user?.role === 'super_admin' && companyId 
+                        ? 'No categories available for selected company' 
+                        : 'Select a category'}
+                    </option>
+                    {availableCategories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name.en || category.name.ar}
                       </option>

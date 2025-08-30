@@ -330,7 +330,8 @@ export class MenuService {
         description: true,
         image: true,
         displayNumber: true,
-        isActive: true
+        isActive: true,
+        companyId: true
       },
       orderBy: { displayNumber: 'asc' }
     });
