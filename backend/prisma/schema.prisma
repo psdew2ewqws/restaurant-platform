@@ -185,6 +185,7 @@ model MenuProduct {
   name                       Json
   description                Json?
   image                      String?
+  images                     String[]                    @default([])
   slug                       String?
   basePrice                  Decimal                     @map("base_price") @db.Decimal(10, 2)
   pricing                    Json                        @default("{}")
@@ -206,10 +207,31 @@ model MenuProduct {
   promotionModifierMarkups   PromotionModifierMarkup[]
   promotionProducts          PromotionProduct[]
 
+  productImages              ProductImage[]
+
   @@map("menu_products")
   @@index([companyId, status]) // Multi-tenant performance index
   @@index([companyId, categoryId, priority]) // Category browsing index
   @@index([companyId, createdAt]) // Recent products index
+}
+
+model ProductImage {
+  id            String      @id @default(uuid())
+  productId     String?     @map("product_id")
+  filename      String
+  originalName  String      @map("original_name")
+  url           String
+  size          Int         // File size in bytes
+  width         Int         // Image width
+  height        Int         // Image height
+  mimeType      String      @map("mime_type")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  product       MenuProduct? @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+  @@index([productId])
+  @@index([createdAt])
 }
 
 model ModifierCategory {

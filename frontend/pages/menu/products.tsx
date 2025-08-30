@@ -7,7 +7,6 @@ import {
   DocumentArrowDownIcon,
   DocumentArrowUpIcon,
   ClipboardDocumentListIcon,
-  TagIcon,
   BanknotesIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -18,6 +17,8 @@ import { useLanguage } from '../../src/contexts/LanguageContext';
 import { ProtectedRoute } from '../../src/components/ProtectedRoute';
 import { VirtualizedProductGrid } from '../../src/components/menu/VirtualizedProductGrid';
 import { ProductFilters } from '../../src/components/menu/ProductFilters';
+import { CategorySidebar } from '../../src/components/menu/CategorySidebar';
+import { AddProductModal } from '../../src/components/menu/AddProductModal';
 import { ProductFilters as ProductFiltersType, MenuProduct, MenuCategory } from '../../src/types/menu';
 import toast from 'react-hot-toast';
 
@@ -36,6 +37,14 @@ export default function MenuProductsPage() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Create a key based on categories data to force re-render when categories change
+  const categoriesKey = useMemo(() => {
+    return categories.map(cat => `${cat.id}-${cat.isActive}-${cat.displayNumber}`).join('|');
+  }, [categories]);
 
   // Load categories and tags for filters
   useEffect(() => {
@@ -75,6 +84,40 @@ export default function MenuProductsPage() {
     setFilters(prev => ({ ...prev, ...newFilters }));
   }, []);
 
+  // Handle category selection
+  const handleCategorySelect = useCallback((categoryId: string | undefined) => {
+    setSelectedCategoryId(categoryId);
+    setFilters(prev => ({ ...prev, categoryId }));
+  }, []);
+
+  // Universal refresh function for all data updates
+  const refreshAllData = useCallback(async () => {
+    // Reload categories first and wait for completion
+    await loadFilterData();
+    // Force product grid to refresh after categories are loaded
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
+  // Immediate category update function - updates local state instantly
+  const updateCategoryInState = useCallback((categoryId: string, updates: Partial<MenuCategory>) => {
+    setCategories(prevCategories => 
+      prevCategories.map(cat => 
+        cat.id === categoryId ? { ...cat, ...updates } : cat
+      )
+    );
+  }, []);
+
+  // Handle category updates (refresh categories list and products)
+  const handleCategoryUpdate = useCallback((categoryId?: string, updates?: Partial<MenuCategory>) => {
+    // If we have specific category updates, apply them immediately
+    if (categoryId && updates) {
+      updateCategoryInState(categoryId, updates);
+    }
+    
+    // Also refresh from backend and trigger product grid refresh
+    refreshAllData();
+  }, [refreshAllData, updateCategoryInState]);
+
   // Handle product selection for bulk operations
   const handleProductSelect = useCallback((productId: string) => {
     setSelectedProducts(prev => 
@@ -112,6 +155,8 @@ export default function MenuProductsPage() {
         toast.success(`${selectedProducts.length} products updated successfully`);
         setSelectedProducts([]);
         setSelectionMode(false);
+        // Refresh products grid to show updated status
+        refreshAllData();
       } else {
         throw new Error('Failed to update products');
       }
@@ -120,7 +165,7 @@ export default function MenuProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedProducts]);
+  }, [selectedProducts, refreshAllData]);
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedProducts.length === 0) return;
@@ -146,6 +191,8 @@ export default function MenuProductsPage() {
         toast.success(`${selectedProducts.length} products deleted successfully`);
         setSelectedProducts([]);
         setSelectionMode(false);
+        // Refresh products grid to reflect deletions
+        refreshAllData();
       } else {
         throw new Error('Failed to delete products');
       }
@@ -154,7 +201,7 @@ export default function MenuProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedProducts]);
+  }, [selectedProducts, refreshAllData]);
 
   // Product actions
   const handleProductView = useCallback((product: MenuProduct) => {
@@ -163,11 +210,15 @@ export default function MenuProductsPage() {
 
   const handleProductEdit = useCallback((product: MenuProduct) => {
     toast.success(`Editing ${product.name.en || product.name.ar}`);
+    // After edit operations complete, refresh the data
+    // This would be connected to actual edit functionality
   }, []);
 
   const handleProductDelete = useCallback((productId: string) => {
     toast.success('Product deletion would be implemented here');
-  }, []);
+    // After delete operations complete, refresh the data
+    refreshAllData();
+  }, [refreshAllData]);
 
   // Export functionality
   const handleExport = useCallback(() => {
@@ -215,14 +266,11 @@ export default function MenuProductsPage() {
               
               {/* Right Side Actions */}
               <div className="flex items-center space-x-3">
-                {/* Add Category Button */}
-                <button className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
-                  <TagIcon className="w-4 h-4 mr-2" />
-                  Add Category
-                </button>
-                
                 {/* Add Product Button */}
-                <button className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                <button 
+                  onClick={() => setIsAddProductModalOpen(true)}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                >
                   <PlusIcon className="w-4 h-4 mr-2" />
                   Add Product
                 </button>
@@ -231,11 +279,23 @@ export default function MenuProductsPage() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Main Content with Sidebar Layout */}
+        <div className="flex h-[calc(100vh-64px)]">
+          {/* Category Sidebar */}
+          <CategorySidebar
+            key={categoriesKey}
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+            onCategorySelect={handleCategorySelect}
+            onCategoryUpdate={handleCategoryUpdate}
+          />
           
-          {/* Action Bar */}
-          <div className="flex items-center justify-between mb-6">
+          {/* Main Products Area */}
+          <div className="flex-1 flex flex-col">
+            <div className="max-w-full px-4 sm:px-6 lg:px-8 py-8">
+              
+              {/* Action Bar */}
+              <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               {/* Bulk Selection */}
               <button
@@ -329,19 +389,31 @@ export default function MenuProductsPage() {
             className="mb-6"
           />
 
-          {/* Enterprise Product Grid - Handles 100k+ Items */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <VirtualizedProductGrid
-              filters={filters}
-              onProductSelect={selectionMode ? handleProductSelect : undefined}
-              onProductEdit={handleProductEdit}
-              onProductDelete={handleProductDelete}
-              onProductView={handleProductView}
-              selectedProducts={selectedProducts}
-              selectionMode={selectionMode}
-            />
+              {/* Enterprise Product Grid - Handles 100k+ Items */}
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex-1">
+                <VirtualizedProductGrid
+                  key={`products-grid-${refreshTrigger}`}
+                  filters={filters}
+                  onProductSelect={selectionMode ? handleProductSelect : undefined}
+                  onProductEdit={handleProductEdit}
+                  onProductDelete={handleProductDelete}
+                  onProductView={handleProductView}
+                  selectedProducts={selectedProducts}
+                  selectionMode={selectionMode}
+                  refreshTrigger={refreshTrigger}
+                />
+              </div>
+            </div>
           </div>
         </div>
+        
+        {/* Add Product Modal */}
+        <AddProductModal
+          isOpen={isAddProductModalOpen}
+          onClose={() => setIsAddProductModalOpen(false)}
+          onProductAdded={handleCategoryUpdate}
+          categories={categories}
+        />
       </div>
     </ProtectedRoute>
   );

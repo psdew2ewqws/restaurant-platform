@@ -1,5 +1,5 @@
 // Category Sidebar - Editable Categories for Menu Management
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   PlusIcon,
   PencilIcon, 
@@ -20,7 +20,7 @@ interface CategorySidebarProps {
   categories: MenuCategory[];
   selectedCategoryId?: string;
   onCategorySelect: (categoryId: string | undefined) => void;
-  onCategoryUpdate: () => void;
+  onCategoryUpdate: (categoryId?: string, updates?: Partial<MenuCategory>) => void;
   className?: string;
 }
 
@@ -45,16 +45,33 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // New category form state
+  // New category form state - Calculate next available display number
+  const getNextDisplayNumber = useCallback(() => {
+    if (categories.length === 0) return 1;
+    const maxNumber = Math.max(...categories.map(cat => cat.displayNumber));
+    return maxNumber + 1;
+  }, [categories]);
+
   const [newCategory, setNewCategory] = useState({
     nameEn: '',
     nameAr: '',
-    displayNumber: categories.length + 1,
+    displayNumber: 1,
     isActive: true
   });
 
+  // Update display number when categories change
+  useEffect(() => {
+    if (isAddingCategory) {
+      setNewCategory(prev => ({
+        ...prev,
+        displayNumber: getNextDisplayNumber()
+      }));
+    }
+  }, [categories, isAddingCategory, getNextDisplayNumber]);
+
   const canEdit = user?.role !== 'cashier';
   const canDelete = user?.role === 'super_admin' || user?.role === 'company_owner';
+
 
   // Start editing a category
   const startEdit = useCallback((category: MenuCategory) => {
@@ -90,7 +107,8 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
             ar: editingCategory.nameAr
           },
           displayNumber: editingCategory.displayNumber,
-          isActive: editingCategory.isActive
+          isActive: editingCategory.isActive,
+          ...(user?.companyId && { companyId: user.companyId })
         })
       });
 
@@ -99,14 +117,53 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
         setEditingCategory(null);
         onCategoryUpdate();
       } else {
-        throw new Error('Failed to update category');
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to update category: ${response.status}`);
       }
     } catch (error) {
-      toast.error('Failed to update category');
+      console.error('Category update error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update category');
     } finally {
       setLoading(false);
     }
   }, [editingCategory, onCategoryUpdate]);
+
+  // Toggle category active status (hide/show)
+  const toggleCategoryStatus = useCallback(async (categoryId: string, currentStatus: boolean) => {
+    setLoading(true);
+    try {
+      const category = categories.find(c => c.id === categoryId);
+      if (!category) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories/${categoryId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({
+          name: category.name,
+          displayNumber: category.displayNumber,
+          isActive: !currentStatus,
+          ...(user?.companyId && { companyId: user.companyId })
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`Category ${!currentStatus ? 'shown' : 'hidden'} successfully`);
+        // Immediately update parent state with the new category status
+        onCategoryUpdate(categoryId, { isActive: !currentStatus });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to update category: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Category toggle error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update category');
+    } finally {
+      setLoading(false);
+    }
+  }, [categories, onCategoryUpdate, user?.companyId]);
 
   // Add new category
   const addCategory = useCallback(async () => {
@@ -136,19 +193,23 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
       if (response.ok) {
         toast.success('Category added successfully');
+        // Reset form immediately
         setNewCategory({
           nameEn: '',
           nameAr: '',
-          displayNumber: categories.length + 2,
+          displayNumber: getNextDisplayNumber() + 1,
           isActive: true
         });
         setIsAddingCategory(false);
+        // Refresh categories to show new category
         onCategoryUpdate();
       } else {
-        throw new Error('Failed to add category');
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to add category: ${response.status}`);
       }
     } catch (error) {
-      toast.error('Failed to add category');
+      console.error('Category creation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to add category');
     } finally {
       setLoading(false);
     }
@@ -221,7 +282,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
         >
           <div className="flex items-center justify-between">
             <span>All Products</span>
-            <span className="text-xs text-gray-500">#0</span>
+            <span className="text-xs text-gray-500">All</span>
           </div>
         </button>
       </div>
@@ -232,7 +293,11 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
           <div
             key={category.id}
             className={`category-item border rounded-lg ${
-              selectedCategoryId === category.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+              selectedCategoryId === category.id 
+                ? 'border-blue-500 bg-blue-50' 
+                : !category.isActive 
+                  ? 'border-gray-200 bg-gray-50 opacity-60' 
+                  : 'border-gray-200'
             }`}
           >
             {editingCategory?.id === category.id ? (
@@ -258,8 +323,9 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                     <input
                       type="number"
                       value={editingCategory.displayNumber}
-                      onChange={(e) => setEditingCategory(prev => prev ? { ...prev, displayNumber: parseInt(e.target.value) || 0 } : null)}
+                      onChange={(e) => setEditingCategory(prev => prev ? { ...prev, displayNumber: Math.max(1, parseInt(e.target.value) || 1) } : null)}
                       placeholder="Order"
+                      min="1"
                       className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <label className="flex items-center text-sm">
@@ -300,24 +366,46 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className={`text-sm font-medium truncate ${
+                        !category.isActive ? 'text-gray-500' : 'text-gray-900'
+                      }`}>
                         {getLocalizedText(category.name, language)}
+                        {!category.isActive && (
+                          <span className="ml-2 text-xs text-gray-400">(Hidden)</span>
+                        )}
                       </p>
                       {language === 'en' && getLocalizedText(category.name, 'ar') && (
-                        <p className="text-xs text-gray-500 truncate" dir="rtl">
+                        <p className={`text-xs truncate ${
+                          !category.isActive ? 'text-gray-400' : 'text-gray-500'
+                        }`} dir="rtl">
                           {getLocalizedText(category.name, 'ar')}
                         </p>
                       )}
                       {language === 'ar' && getLocalizedText(category.name, 'en') && (
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className={`text-xs truncate ${
+                          !category.isActive ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
                           {getLocalizedText(category.name, 'en')}
                         </p>
                       )}
                     </div>
                     <div className="flex items-center space-x-2 ml-2">
                       <span className="text-xs text-gray-500">#{category.displayNumber}</span>
-                      {!category.isActive && (
-                        <EyeSlashIcon className="w-4 h-4 text-gray-400" />
+                      {canEdit && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCategoryStatus(category.id, category.isActive);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                          title={category.isActive ? 'Hide category' : 'Show category'}
+                        >
+                          {category.isActive ? (
+                            <EyeIcon className="w-4 h-4" />
+                          ) : (
+                            <EyeSlashIcon className="w-4 h-4" />
+                          )}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -372,8 +460,9 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                 <input
                   type="number"
                   value={newCategory.displayNumber}
-                  onChange={(e) => setNewCategory(prev => ({ ...prev, displayNumber: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, displayNumber: Math.max(1, parseInt(e.target.value) || 1) }))}
                   placeholder="Display order"
+                  min="1"
                   className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <label className="flex items-center text-sm">

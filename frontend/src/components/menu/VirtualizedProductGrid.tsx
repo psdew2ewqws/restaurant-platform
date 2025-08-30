@@ -10,7 +10,8 @@ import {
   ClockIcon,
   CurrencyDollarIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline';
 import { MenuProduct, ProductFilters } from '../../types/menu';
 import { getLocalizedText, formatCurrency, getStatusConfig, getTagColor, trackPerformanceMetric } from '../../lib/menu-utils';
@@ -26,6 +27,7 @@ interface VirtualizedProductGridProps {
   selectedProducts?: string[];
   selectionMode?: boolean;
   className?: string;
+  refreshTrigger?: number;
 }
 
 interface ProductCardSkeletonProps {
@@ -57,7 +59,8 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
   onProductView,
   selectedProducts = [],
   selectionMode = false,
-  className = ''
+  className = '',
+  refreshTrigger = 0
 }) => {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -115,12 +118,12 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
     }
   }, [filters, user, products.length]);
 
-  // Load initial data and reload on filter changes
+  // Load initial data and reload on filter changes or category updates
   useEffect(() => {
     if (user) {
       loadProducts(true);
     }
-  }, [user, filters.categoryId, filters.search, filters.sortBy, filters.sortOrder, filters.status, loadProducts]);
+  }, [user, filters.categoryId, filters.search, filters.sortBy, filters.sortOrder, filters.status, refreshTrigger, loadProducts]);
 
   // Single product card component
   const SingleProductCard = useMemo(() => ({ product }: { product: MenuProduct }) => {
@@ -128,18 +131,29 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
     const isSelected = selectedProducts.includes(product.id);
     
     return (
-      <div className={`product-card bg-white rounded-lg border transition-all duration-200 hover:shadow-md ${
+      <div className={`product-card bg-white rounded-lg border transition-all duration-200 hover:shadow-md relative ${
         isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
       }`}>
         {/* Selection checkbox for bulk operations */}
         {selectionMode && (
-          <div className="absolute top-3 left-3 z-10">
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => onProductSelect?.(product.id)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
+          <div className="absolute top-3 left-3 z-20">
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => onProductSelect?.(product.id)}
+                className="sr-only"
+              />
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                isSelected 
+                  ? 'bg-blue-600 border-blue-600 shadow-md' 
+                  : 'bg-white border-gray-300 hover:border-gray-400 shadow-sm'
+              }`}>
+                {isSelected && (
+                  <CheckIcon className="w-3 h-3 text-white" />
+                )}
+              </div>
+            </label>
           </div>
         )}
         

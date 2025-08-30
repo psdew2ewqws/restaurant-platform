@@ -1,4 +1,4 @@
-import { IsArray, IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsArray, IsString, IsEnum, IsOptional, IsNumber, IsBoolean, IsObject } from 'class-validator';
 
 export class BulkStatusUpdateDto {
   @IsArray()
@@ -16,16 +16,24 @@ export class BulkDeleteDto {
 }
 
 export class CreateCategoryDto {
-  @IsString()
-  name: { en?: string; ar?: string };
+  @IsObject()
+  name: { en?: string; ar?: string; [key: string]: string };
 
   @IsOptional()
-  @IsString()
-  description?: { en?: string; ar?: string };
+  @IsObject()
+  description?: { en?: string; ar?: string; [key: string]: string };
 
   @IsOptional()
   @IsString()
   image?: string;
+
+  @IsOptional()
+  @IsNumber()
+  displayNumber?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 
   @IsOptional()
   @IsString()

@@ -10,9 +10,14 @@ import {
   UseGuards,
   Request,
   HttpStatus,
-  HttpCode
+  HttpCode,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { MenuService } from './menu.service';
+import { ImageUploadService } from './services/image-upload.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CompanyGuard } from '../../common/guards/company.guard';
@@ -29,7 +34,10 @@ import {
 @Controller('menu')
 @UseGuards(JwtAuthGuard, RolesGuard, CompanyGuard)
 export class MenuController {
-  constructor(private readonly menuService: MenuService) {}
+  constructor(
+    private readonly menuService: MenuService,
+    private readonly imageUploadService: ImageUploadService
+  ) {}
 
   // Get paginated products for VirtualizedProductGrid
   @Post('products/paginated')
@@ -124,5 +132,71 @@ export class MenuController {
   async createCategory(@Body() createCategoryDto: CreateCategoryDto, @Request() req) {
     const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
     return this.menuService.createCategory(createCategoryDto, userCompanyId);
+  }
+
+  // Update category
+  @Put('categories/:id')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() updateCategoryDto: CreateCategoryDto,
+    @Request() req
+  ) {
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    return this.menuService.updateCategory(id, updateCategoryDto, userCompanyId);
+  }
+
+  // Delete category
+  @Delete('categories/:id')
+  @Roles('super_admin', 'company_owner')
+  async deleteCategory(@Param('id') id: string, @Request() req) {
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    return this.menuService.deleteCategory(id, userCompanyId);
+  }
+
+  // Upload product images
+  @Post('products/upload-images')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  @UseInterceptors(FilesInterceptor('images', 10)) // Max 10 files
+  async uploadProductImages(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('productId') productId?: string,
+    @Request() req?
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files uploaded');
+    }
+
+    // Validate files
+    for (const file of files) {
+      const validation = this.imageUploadService.validateImageFile(file);
+      if (!validation.valid) {
+        throw new BadRequestException(validation.error);
+      }
+    }
+
+    return this.imageUploadService.bulkUploadAndOptimize(files, productId);
+  }
+
+  // Get product images
+  @Get('products/:id/images')
+  @Roles('super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier')
+  async getProductImages(@Param('id') productId: string) {
+    return this.imageUploadService.getProductImages(productId);
+  }
+
+  // Delete image
+  @Delete('images/:id')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async deleteImage(@Param('id') imageId: string) {
+    await this.imageUploadService.deleteImage(imageId);
+    return { message: 'Image deleted successfully' };
+  }
+
+  // Get upload configuration
+  @Get('upload-config')
+  @Roles('super_admin', 'company_owner', 'branch_manager', 'call_center')
+  getUploadConfig() {
+    return this.imageUploadService.getUploadConfig();
   }
 }

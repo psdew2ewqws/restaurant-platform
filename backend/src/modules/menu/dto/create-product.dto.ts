@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsDecimal, ValidateNested } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsEnum, IsDecimal, ValidateNested, IsObject, IsBoolean } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 export class LocalizedTextDto {
@@ -9,28 +9,54 @@ export class LocalizedTextDto {
   @IsOptional()  
   @IsString()
   ar?: string;
+
+  // Support for additional languages
+  [key: string]: any;
+}
+
+export class PricingChannelDto {
+  @IsString()
+  id: string;
+
+  @IsString()
+  name: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Transform(({ value }) => parseFloat(value))
+  price: number;
+
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
 }
 
 export class PricingDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Transform(({ value }) => parseFloat(value))
+  talabat?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Transform(({ value }) => parseFloat(value))
+  careem?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Transform(({ value }) => parseFloat(value))
+  callcenter?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Transform(({ value }) => parseFloat(value))
   website?: number;
 
+  // Support for custom channels
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Transform(({ value }) => parseFloat(value))
-  uber_eats?: number;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Transform(({ value }) => parseFloat(value))
-  doordash?: number;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Transform(({ value }) => parseFloat(value))
-  talabat?: number;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PricingChannelDto)
+  customChannels?: PricingChannelDto[];
 }
 
 export class CreateProductDto {
@@ -61,7 +87,7 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
-  image?: string;
+  image?: string; // Primary image for backward compatibility
 
   @IsOptional()
   @IsArray()
@@ -71,12 +97,21 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => parseInt(value))
-  preparationTime?: number;
+  preparationTimeOverride?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  calculatePreparationTime?: boolean;
 
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => parseInt(value))
-  priority?: number;
+  priority?: number; // Lower number = higher priority (1 = first position)
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsEnum([0, 1])
@@ -86,4 +121,13 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   companyId?: string;
+
+  // Add-ons will be handled in next step
+  @IsOptional()
+  @IsBoolean()
+  hasAddons?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  addonIds?: string[];
 }
