@@ -1,0 +1,16 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true
+  },
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "files.associations": {
+    "*.env.*": "dotenv"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "files.eol": "\n",
+  "typescript.suggest.autoImports": true,
+  "javascript.suggest.autoImports": true
+}
