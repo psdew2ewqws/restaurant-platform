@@ -1,0 +1,424 @@
+// Enterprise Menu Products Management - B2B Professional
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import { 
+  PlusIcon,
+  DocumentArrowDownIcon,
+  DocumentArrowUpIcon,
+  ClipboardDocumentListIcon,
+  TagIcon,
+  ChartBarIcon,
+  Cog6ToothIcon,
+  BanknotesIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ArrowLeftIcon
+} from '@heroicons/react/24/outline';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { useLanguage } from '../../src/contexts/LanguageContext';
+import ProtectedRoute from '../../src/components/ProtectedRoute';
+import { VirtualizedProductGrid } from '../../src/components/menu/VirtualizedProductGrid';
+import { ProductFilters } from '../../src/components/menu/ProductFilters';
+import { ProductFilters as ProductFiltersType, MenuProduct, MenuCategory } from '../../src/types/menu';
+import toast from 'react-hot-toast';
+
+export default function MenuProductsPage() {
+  const { user } = useAuth();
+  const { language, t } = useLanguage();
+  const [filters, setFilters] = useState<ProductFiltersType>({
+    sortBy: 'priority',
+    sortOrder: 'asc',
+    status: undefined,
+    search: '',
+    tags: []
+  });
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load categories and tags for filters
+  useEffect(() => {
+    loadFilterData();
+  }, [user?.companyId]);
+
+  const loadFilterData = async () => {
+    // Super admins can see all data, regular users need companyId
+    if (!user?.companyId && user?.role !== 'super_admin') return;
+    
+    try {
+      const [categoriesRes, tagsRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/tags`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        })
+      ]);
+      
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json();
+        setCategories(categoriesData.categories || []);
+      }
+      
+      if (tagsRes.ok) {
+        const tagsData = await tagsRes.json();
+        setAvailableTags(tagsData.tags || []);
+      }
+    } catch (error) {
+      console.error('Failed to load filter data:', error);
+    }
+  };
+
+  // Handle filter changes
+  const handleFiltersChange = useCallback((newFilters: Partial<ProductFiltersType>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+  }, []);
+
+  // Handle product selection for bulk operations
+  const handleProductSelect = useCallback((productId: string) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  }, []);
+
+  // Toggle selection mode
+  const toggleSelectionMode = useCallback(() => {
+    setSelectionMode(prev => !prev);
+    setSelectedProducts([]);
+    setShowBulkActions(false);
+  }, []);
+
+  // Bulk operations
+  const handleBulkStatusChange = useCallback(async (status: number) => {
+    if (selectedProducts.length === 0) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/bulk-status`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          productIds: selectedProducts,
+          status
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`${selectedProducts.length} products updated successfully`);
+        setSelectedProducts([]);
+        setSelectionMode(false);
+      } else {
+        throw new Error('Failed to update products');
+      }
+    } catch (error) {
+      toast.error('Failed to update products');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProducts]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedProducts.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedProducts.length} products? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/bulk-delete`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          productIds: selectedProducts
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`${selectedProducts.length} products deleted successfully`);
+        setSelectedProducts([]);
+        setSelectionMode(false);
+      } else {
+        throw new Error('Failed to delete products');
+      }
+    } catch (error) {
+      toast.error('Failed to delete products');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProducts]);
+
+  // Product actions
+  const handleProductView = useCallback((product: MenuProduct) => {
+    // TODO: Implement product view modal
+    toast.success(`Viewing ${product.name.en || product.name.ar}`);
+  }, []);
+
+  const handleProductEdit = useCallback((product: MenuProduct) => {
+    // TODO: Implement product edit modal
+    toast.success(`Editing ${product.name.en || product.name.ar}`);
+  }, []);
+
+  const handleProductDelete = useCallback((productId: string) => {
+    // TODO: Implement product delete confirmation
+    toast.success('Product deletion would be implemented here');
+  }, []);
+
+  // Export functionality
+  const handleExport = useCallback(() => {
+    toast.success('Export functionality would be implemented here');
+  }, []);
+
+  // Import functionality
+  const handleImport = useCallback(() => {
+    toast.success('Import functionality would be implemented here');
+  }, []);
+
+  // Memoized stats
+  const selectionStats = useMemo(() => ({
+    totalSelected: selectedProducts.length,
+    canEdit: user?.role !== 'cashier',
+    canDelete: user?.role === 'super_admin' || user?.role === 'company_owner'
+  }), [selectedProducts, user?.role]);
+
+  return (
+    <div>
+      <Head>
+        <title>Menu Products - Restaurant Management</title>
+        <meta name="description" content="Manage your restaurant menu products with enterprise-grade tools" />
+      </Head>
+
+      <div className="min-h-screen bg-gray-50">
+        {/* Professional Header - Matching Dashboard Theme */}
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              {/* Breadcrumb Navigation */}
+              <nav className="flex items-center space-x-2 text-sm">
+                <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 transition-colors">
+                  Dashboard
+                </Link>
+                <span className="text-gray-300">/</span>
+                <Link href="/menu" className="text-gray-500 hover:text-gray-700 transition-colors">
+                  Menu Management
+                </Link>
+                <span className="text-gray-300">/</span>
+                <span className="text-gray-900 font-medium">Products</span>
+              </nav>
+
+              {/* User Context */}
+              <div className="flex items-center">
+                <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold border border-blue-200">
+                  {user?.role === 'super_admin' ? 'Global View' : 'Company Scope'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          
+          {/* Page Header Card - Matching Dashboard Theme */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6 shadow-sm">
+            <div className="flex items-start justify-between">
+              {/* Left Side - Title and Back Button */}
+              <div className="flex-1">
+                <div className="flex items-center mb-4">
+                  {/* Back Button */}
+                  <Link href="/dashboard" className="mr-4">
+                    <button className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 hover:border-gray-300 transition-colors">
+                      <ArrowLeftIcon className="w-4 h-4 mr-1.5" />
+                      Back
+                    </button>
+                  </Link>
+                  
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Menu Products</h1>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 max-w-2xl">
+                  Manage your restaurant menu items with enterprise-grade performance for 100k+ products
+                </p>
+              </div>
+
+              {/* Right Side - Action Buttons */}
+              <div className="flex items-center space-x-3 ml-6">
+                {/* Bulk Selection */}
+                <button
+                  onClick={toggleSelectionMode}
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border transition-all duration-200 ${
+                    selectionMode
+                      ? 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
+                      : 'text-gray-600 bg-white border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <ClipboardDocumentListIcon className="w-4 h-4 mr-1.5" />
+                  {selectionMode ? 'Exit Selection' : 'Bulk Select'}
+                </button>
+
+                {/* Import/Export Dropdown */}
+                <div className="relative">
+                  <div className="flex border border-gray-200 rounded-md bg-white">
+                    <button
+                      onClick={handleImport}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-200"
+                    >
+                      <DocumentArrowUpIcon className="w-4 h-4 mr-1.5" />
+                      Import
+                    </button>
+                    <button
+                      onClick={handleExport}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      <DocumentArrowDownIcon className="w-4 h-4 mr-1.5" />
+                      Export
+                    </button>
+                  </div>
+                </div>
+
+                {/* Primary Actions */}
+                <button className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                  <TagIcon className="w-4 h-4 mr-2" />
+                  Add Category
+                </button>
+
+                <button className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors shadow-sm">
+                  <PlusIcon className="w-4 h-4 mr-2" />
+                  Add Product
+                </button>
+              </div>
+            </div>
+          </div>
+
+            {/* Quick Stats */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center">
+                  <ClipboardDocumentListIcon className="w-8 h-8 text-blue-600" />
+                  <div className="ml-4">
+                    <p className="text-2xl font-semibold text-gray-900">-</p>
+                    <p className="text-sm text-gray-600">Total Products</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center">
+                  <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                  <div className="ml-4">
+                    <p className="text-2xl font-semibold text-gray-900">-</p>
+                    <p className="text-sm text-gray-600">Active Products</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center">
+                  <BanknotesIcon className="w-8 h-8 text-yellow-600" />
+                  <div className="ml-4">
+                    <p className="text-2xl font-semibold text-gray-900">-</p>
+                    <p className="text-sm text-gray-600">Avg. Price</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center">
+                  <TagIcon className="w-8 h-8 text-purple-600" />
+                  <div className="ml-4">
+                    <p className="text-2xl font-semibold text-gray-900">{categories.length}</p>
+                    <p className="text-sm text-gray-600">Categories</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Selection Mode Banner */}
+          {selectionMode && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <ClipboardDocumentListIcon className="w-5 h-5 text-blue-600 mr-2" />
+                  <span className="text-sm font-medium text-blue-800">
+                    Selection Mode Active - {selectionStats.totalSelected} product{selectionStats.totalSelected !== 1 ? 's' : ''} selected
+                  </span>
+                </div>
+                
+                {selectionStats.totalSelected > 0 && (
+                  <div className="flex items-center space-x-3">
+                    {selectionStats.canEdit && (
+                      <>
+                        <button
+                          onClick={() => handleBulkStatusChange(1)}
+                          disabled={loading}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded-md transition-colors disabled:opacity-50"
+                        >
+                          <CheckCircleIcon className="w-4 h-4 mr-1" />
+                          Activate
+                        </button>
+                        <button
+                          onClick={() => handleBulkStatusChange(0)}
+                          disabled={loading}
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-100 hover:bg-yellow-200 rounded-md transition-colors disabled:opacity-50"
+                        >
+                          <ExclamationTriangleIcon className="w-4 h-4 mr-1" />
+                          Deactivate
+                        </button>
+                      </>
+                    )}
+                    
+                    {selectionStats.canDelete && (
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={loading}
+                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        Delete Selected
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Professional Filters */}
+          <ProductFilters
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            categories={categories}
+            availableTags={availableTags}
+            className="mb-6"
+          />
+
+          {/* Enterprise Product Grid - Handles 100k+ Items */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <VirtualizedProductGrid
+              filters={filters}
+              onProductSelect={selectionMode ? handleProductSelect : undefined}
+              onProductEdit={handleProductEdit}
+              onProductDelete={handleProductDelete}
+              onProductView={handleProductView}
+              selectedProducts={selectedProducts}
+              selectionMode={selectionMode}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

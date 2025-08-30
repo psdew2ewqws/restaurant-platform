@@ -69,15 +69,7 @@ const nextConfig = {
     return config
   },
   
-  // API rewrites
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/:path*`,
-      },
-    ]
-  },
+  // API rewrites (removed - using direct API calls now)
   
   // Headers for better caching and performance
   async headers() {
