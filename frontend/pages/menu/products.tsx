@@ -19,6 +19,8 @@ import { VirtualizedProductGrid } from '../../src/components/menu/VirtualizedPro
 import { ProductFilters } from '../../src/components/menu/ProductFilters';
 import { CategorySidebar } from '../../src/components/menu/CategorySidebar';
 import { AddProductModal } from '../../src/components/menu/AddProductModal';
+import { EditProductModal } from '../../src/components/menu/EditProductModal';
+import { ProductViewModal } from '../../src/components/menu/ProductViewModal';
 import { ProductFilters as ProductFiltersType, MenuProduct, MenuCategory } from '../../src/types/menu';
 import toast from 'react-hot-toast';
 
@@ -38,6 +40,10 @@ export default function MenuProductsPage() {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [isEditProductModalOpen, setIsEditProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<MenuProduct | null>(null);
+  const [isViewProductModalOpen, setIsViewProductModalOpen] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<MenuProduct | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
@@ -204,20 +210,58 @@ export default function MenuProductsPage() {
   }, [selectedProducts, refreshAllData]);
 
   // Product actions
-  const handleProductView = useCallback((product: MenuProduct) => {
-    toast.success(`Viewing ${product.name.en || product.name.ar}`);
+  const handleProductView = useCallback(async (product: MenuProduct) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/${product.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const productData = await response.json();
+        setViewingProduct(productData);
+        setIsViewProductModalOpen(true);
+      } else {
+        throw new Error('Failed to fetch product details');
+      }
+    } catch (error) {
+      console.error('View product error:', error);
+      toast.error('Failed to load product details');
+    }
   }, []);
 
   const handleProductEdit = useCallback((product: MenuProduct) => {
-    toast.success(`Editing ${product.name.en || product.name.ar}`);
-    // After edit operations complete, refresh the data
-    // This would be connected to actual edit functionality
+    setEditingProduct(product);
+    setIsEditProductModalOpen(true);
   }, []);
 
-  const handleProductDelete = useCallback((productId: string) => {
-    toast.success('Product deletion would be implemented here');
-    // After delete operations complete, refresh the data
-    refreshAllData();
+  const handleProductDelete = useCallback(async (productId: string, productName?: string) => {
+    const name = productName || 'this product';
+    
+    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success(`"${name}" deleted successfully`);
+        refreshAllData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete product');
+      }
+    } catch (error) {
+      toast.error(`Failed to delete "${name}"`);
+      console.error('Delete error:', error);
+    }
   }, [refreshAllData]);
 
   // Export functionality
@@ -413,6 +457,28 @@ export default function MenuProductsPage() {
           onClose={() => setIsAddProductModalOpen(false)}
           onProductAdded={handleCategoryUpdate}
           categories={categories}
+        />
+        
+        {/* Edit Product Modal */}
+        <EditProductModal
+          isOpen={isEditProductModalOpen}
+          onClose={() => {
+            setIsEditProductModalOpen(false);
+            setEditingProduct(null);
+          }}
+          onProductUpdated={handleCategoryUpdate}
+          categories={categories}
+          product={editingProduct}
+        />
+        
+        {/* View Product Modal */}
+        <ProductViewModal
+          isOpen={isViewProductModalOpen}
+          onClose={() => {
+            setIsViewProductModalOpen(false);
+            setViewingProduct(null);
+          }}
+          product={viewingProduct}
         />
       </div>
     </ProtectedRoute>

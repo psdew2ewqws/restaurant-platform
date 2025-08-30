@@ -491,7 +491,6 @@ export class LicensesService {
       where: { id: currentLicense.id },
       create: {
         companyId,
-        type: currentLicense.type,
         status: 'active',
         startDate: now,
         expiresAt: newExpiryDate,
@@ -588,7 +587,7 @@ export class LicensesService {
       AND i.company_id = ${companyId}
     `;
 
-    if (!invoice || invoice.length === 0) {
+    if (!invoice || (Array.isArray(invoice) && invoice.length === 0)) {
       throw new NotFoundException('Invoice not found');
     }
 

@@ -301,6 +301,18 @@ export default function CompaniesPage() {
 
       if (response || response === '') { // DELETE returns 204 No Content
         toast.success('Company deleted successfully!')
+        
+        // Immediate UI update - remove the company from state
+        setCompanies(prev => prev.filter(company => company.id !== companyId))
+        
+        // Also remove from license cache
+        setCompanyLicenses(prev => {
+          const updated = { ...prev }
+          delete updated[companyId]
+          return updated
+        })
+        
+        // Refresh from server to ensure consistency
         fetchCompanies()
       }
     } catch (error) {

@@ -22,7 +22,7 @@ interface VirtualizedProductGridProps {
   filters: ProductFilters;
   onProductSelect?: (productId: string) => void;
   onProductEdit?: (product: MenuProduct) => void;
-  onProductDelete?: (productId: string) => void;
+  onProductDelete?: (productId: string, productName?: string) => void;
   onProductView?: (product: MenuProduct) => void;
   selectedProducts?: string[];
   selectionMode?: boolean;
@@ -91,7 +91,8 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
           ...filters,
           page: reset ? 1 : Math.ceil(products.length / 50) + 1,
           limit: 50,
-          ...(user.companyId && { companyId: user.companyId }) // Company isolation for regular users
+          // Super admin can see all companies, others are restricted to their company
+          ...(user.role !== 'super_admin' && user.companyId && { companyId: user.companyId })
         }),
       });
 
@@ -198,30 +199,23 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
             <p className="text-sm text-gray-500">
               {product.category ? getLocalizedText(product.category.name, language) : 'Uncategorized'}
             </p>
-          </div>
-
-          {/* Pricing - Multi-channel support */}
-          <div className="mb-3">
-            <div className="flex items-baseline space-x-2">
-              <span className="text-lg font-bold text-gray-900">
-                {formatCurrency(product.basePrice)}
-              </span>
-              {product.cost > 0 && (
-                <span className="text-sm text-gray-500 line-through">
-                  Cost: {formatCurrency(product.cost)}
-                </span>
-              )}
-            </div>
             
-            {/* Multi-channel pricing indicator */}
-            {Object.keys(product.pricing).length > 1 && (
-              <div className="mt-1">
-                <span className="text-xs text-blue-600 font-medium">
-                  Multi-channel pricing
-                </span>
-              </div>
+            {/* Company name for super_admin */}
+            {user?.role === 'super_admin' && product.company && (
+              <p className="text-xs text-blue-600 font-medium mt-1 bg-blue-50 px-2 py-1 rounded inline-block">
+                🏢 {product.company.name}
+              </p>
             )}
           </div>
+
+          {/* Multi-channel pricing indicator - removed base price display */}
+          {Object.keys(product.pricing).length > 1 && (
+            <div className="mb-3">
+              <span className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded">
+                Multi-channel pricing
+              </span>
+            </div>
+          )}
 
           {/* Tags */}
           {product.tags.length > 0 && (
@@ -277,7 +271,7 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
             
             {(user?.role === 'super_admin' || user?.role === 'company_owner') && (
               <button
-                onClick={() => onProductDelete?.(product.id)}
+                onClick={() => onProductDelete?.(product.id, getLocalizedText(product.name, language))}
                 className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-md transition-colors"
               >
                 <TrashIcon className="w-3 h-3 mr-1" />

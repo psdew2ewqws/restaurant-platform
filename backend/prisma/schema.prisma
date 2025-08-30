@@ -241,6 +241,10 @@ model ModifierCategory {
   description       Json?
   displayNumber     Int                       @default(0) @map("display_number")
   image             String?
+  selectionType     ModifierSelectionType     @default(single) @map("selection_type")
+  isRequired        Boolean                   @default(false) @map("is_required")
+  minSelections     Int                       @default(0) @map("min_selections")
+  maxSelections     Int                       @default(1) @map("max_selections")
   createdAt         DateTime                  @default(now()) @map("created_at")
   updatedAt         DateTime                  @updatedAt @map("updated_at")
   deletedAt         DateTime?                 @map("deleted_at")
@@ -262,6 +266,8 @@ model Modifier {
   cost               Decimal                     @default(0) @db.Decimal(10, 2)
   status             Int                         @default(1)
   displayNumber      Int                         @default(0) @map("display_number")
+  isDefault          Boolean                     @default(false) @map("is_default")
+  image              String?
   createdAt          DateTime                    @default(now()) @map("created_at")
   updatedAt          DateTime                    @updatedAt @map("updated_at")
   deletedAt          DateTime?                   @map("deleted_at")
@@ -394,4 +400,12 @@ enum LicenseStatus {
   cancelled
 
   @@map("license_status")
+}
+
+enum ModifierSelectionType {
+  single      // Radio buttons - max 1 selection
+  multiple    // Checkboxes - multiple selections allowed
+  counter     // Number input with +/- buttons
+
+  @@map("modifier_selection_type")
 }

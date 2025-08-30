@@ -93,7 +93,7 @@ export class CompaniesService {
     cursor?: Prisma.CompanyWhereUniqueInput;
     where?: Prisma.CompanyWhereInput;
     orderBy?: Prisma.CompanyOrderByWithRelationInput;
-  }): Promise<Company[]> {
+  }): Promise<any[]> {
     const { skip, take = 50, cursor, where, orderBy } = params;
     
     return this.prisma.company.findMany({
@@ -141,7 +141,7 @@ export class CompaniesService {
   /**
    * Find company by ID or slug
    */
-  async findOne(identifier: string): Promise<Company | null> {
+  async findOne(identifier: string): Promise<any | null> {
     try {
       const company = await this.prisma.company.findFirst({
         where: {

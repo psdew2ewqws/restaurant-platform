@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { MenuCategory } from '../../types/menu';
+import { AddOnManagement, ModifierCategory } from './AddOnManagement';
 import toast from 'react-hot-toast';
 
 interface AddProductModalProps {
@@ -87,10 +88,34 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Load companies for super admin
+  useEffect(() => {
+    if (user?.role === 'super_admin' && isOpen) {
+      const loadCompanies = async () => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/companies/list`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Companies loaded:', data);
+            setCompanies(data.companies || []);
+          }
+        } catch (error) {
+          console.error('Failed to load companies:', error);
+        }
+      };
+      loadCompanies();
+    }
+  }, [user?.role, isOpen]);
   
   // Form state
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1); // 1: Basic Info, 2: Add-ons
+  const [tempProductId, setTempProductId] = useState<string | null>(null);
   
   // Multi-language fields
   const [nameFields, setNameFields] = useState<LanguageField[]>([
@@ -110,9 +135,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   
   // Other fields
   const [categoryId, setCategoryId] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [companies, setCompanies] = useState<any[]>([]);
   const [basePrice, setBasePrice] = useState<number>(0);
   const [defaultPrice, setDefaultPrice] = useState<number>(0);
-  const [priority, setPriority] = useState<number>(999);
+  const [priority, setPriority] = useState<number | ''>('');
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [status, setStatus] = useState<number>(1);
@@ -130,6 +157,24 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [showNameLanguageDropdown, setShowNameLanguageDropdown] = useState(false);
   const [showDescriptionLanguageDropdown, setShowDescriptionLanguageDropdown] = useState(false);
   const [languageSearchTerm, setLanguageSearchTerm] = useState('');
+
+  // Handle default price change - automatically apply to all enabled platforms
+  const handleDefaultPriceChange = useCallback((newPrice: number) => {
+    setDefaultPrice(newPrice);
+    // Update basePrice to match
+    setBasePrice(newPrice);
+    // Apply to all enabled pricing channels
+    if (newPrice > 0) {
+      setPricingChannels(prev => prev.map(channel => ({
+        ...channel,
+        price: channel.enabled ? newPrice : channel.price
+      })));
+      setCustomChannels(prev => prev.map(channel => ({
+        ...channel,
+        price: channel.enabled ? newPrice : channel.price
+      })));
+    }
+  }, []);
 
   // Add new language field (syncs between name and description)
   const addLanguageField = useCallback((languageCode: string) => {
@@ -214,26 +259,6 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     ));
   }, []);
 
-  // Auto-apply default pricing when defaultPrice changes
-  const applyDefaultPricing = useCallback((price: number) => {
-    if (price > 0) {
-      setPricingChannels(prev => prev.map(channel => ({
-        ...channel,
-        price: channel.enabled ? price : channel.price
-      })));
-      setCustomChannels(prev => prev.map(channel => ({
-        ...channel,
-        price: channel.enabled ? price : channel.price
-      })));
-    }
-  }, []);
-  
-  // Handle default price change
-  const handleDefaultPriceChange = useCallback((newPrice: number) => {
-    setDefaultPrice(newPrice);
-    applyDefaultPricing(newPrice);
-  }, [applyDefaultPricing]);
-
   // Add tag
   const addTag = useCallback(() => {
     if (!newTag.trim() || tags.includes(newTag.trim())) return;
@@ -296,13 +321,18 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       return;
     }
     
+    if (user?.role === 'super_admin' && !companyId) {
+      toast.error('Please select a company/brand');
+      return;
+    }
+    
     if (!categoryId) {
       toast.error('Please select a category');
       return;
     }
     
-    if (basePrice <= 0) {
-      toast.error('Base price must be greater than 0');
+    if (defaultPrice <= 0) {
+      toast.error('Default pricing must be greater than 0');
       return;
     }
 
@@ -358,13 +388,14 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         basePrice,
         pricing,
         categoryId,
-        priority,
+        priority: priority === '' ? 999 : priority, // Default to 999 if not specified
         tags,
         status,
         images: imageUrls,
         image: imageUrls[0], // Primary image
         calculatePreparationTime: true,
-        ...(user?.companyId && { companyId: user.companyId })
+        // Use selected company for super admin, user's company for others
+        companyId: user?.role === 'super_admin' ? companyId : user?.companyId
       };
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products`, {
@@ -396,7 +427,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     }
   }, [
     nameFields, descriptionFields, categoryId, basePrice, priority, tags, status,
-    pricingChannels, customChannels, productImages, user?.companyId, onProductAdded, onClose
+    pricingChannels, customChannels, productImages, user?.companyId, user?.role, companyId, defaultPrice, onProductAdded, onClose
   ]);
 
   // Reset form
@@ -410,9 +441,10 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       { code: 'ar', name: 'العربية', value: '' }
     ]);
     setCategoryId('');
+    setCompanyId('');
     setBasePrice(0);
     setDefaultPrice(0);
-    setPriority(999);
+    setPriority('');
     setTags([]);
     setNewTag('');
     setStatus(1);
@@ -422,6 +454,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     // Preparation time is always auto-calculated
     setProductImages({ files: [], previews: [] });
     setCurrentStep(1);
+    setTempProductId(null);
   }, []);
 
   // Handle close
@@ -430,13 +463,58 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     onClose();
   }, [resetForm, onClose]);
 
-  // Go to add-ons step (placeholder for future implementation)
-  const goToAddOnsStep = useCallback(() => {
-    setCurrentStep(2);
-    toast.success('Basic product info saved! Add-ons functionality coming soon.');
-    // For now, just submit the product
-    handleSubmit(new Event('submit') as any);
-  }, [handleSubmit]);
+  // Go to add-ons step
+  const goToAddOnsStep = useCallback(async () => {
+    // Validate required fields before proceeding
+    const englishName = nameFields.find(field => field.code === 'en')?.value || '';
+    if (!englishName || !categoryId || !basePrice || basePrice <= 0) {
+      toast.error('Please fill in all required fields before proceeding to add-ons');
+      return;
+    }
+
+    // First, save the basic product
+    try {
+      setLoading(true);
+      const productData = {
+        names: Object.fromEntries(nameFields.map(field => [field.code, field.value])),
+        descriptions: Object.fromEntries(descriptionFields.map(field => [field.code, field.value])),
+        categoryId,
+        basePrice,
+        priority: priority || 1,
+        tags,
+        status,
+        companyId: user?.role === 'super_admin' ? companyId : user?.companyId,
+        images: productImages.files,
+        pricing: Object.fromEntries(
+          pricingChannels.filter(channel => channel.enabled).map(channel => [channel.id, channel.price])
+        )
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+        body: JSON.stringify(productData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create product');
+      }
+
+      const savedProduct = await response.json();
+      setCurrentStep(2);
+      setTempProductId(savedProduct.data.id); // Store the product ID for add-ons
+      toast.success('Product created! Now configure add-ons.');
+    } catch (error: any) {
+      console.error('Error creating product:', error);
+      toast.error(error.message || 'Failed to create product');
+    } finally {
+      setLoading(false);
+    }
+  }, [nameFields, descriptionFields, categoryId, basePrice, priority, tags, status, companyId, user, productImages, pricingChannels]);
 
   if (!isOpen) return null;
 
@@ -469,10 +547,62 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
           {/* Content */}
           <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
-            <form onSubmit={handleSubmit} className="p-6 space-y-8">
+            {currentStep === 1 ? (
+              <form onSubmit={handleSubmit} className="divide-y divide-gray-100">
               
-              {/* Multi-language Names */}
-              <div className="space-y-4">
+              {/* Basic Information Section */}
+              <div className="p-6 space-y-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+                </div>
+                
+                {/* Company and Category */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Company Selector for Super Admin */}
+                {user?.role === 'super_admin' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Company/Brand *
+                    </label>
+                    <select
+                      value={companyId}
+                      onChange={(e) => setCompanyId(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select a company/brand</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category *
+                  </label>
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name.en || category.name.ar}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+                {/* Multi-language Names */}
+                <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="flex items-center text-sm font-medium text-gray-700">
                     <LanguageIcon className="w-4 h-4 mr-2" />
@@ -547,8 +677,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </div>
               </div>
 
-              {/* Multi-language Descriptions */}
-              <div className="space-y-4">
+                {/* Multi-language Descriptions */}
+                <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="flex items-center text-sm font-medium text-gray-700">
                     <LanguageIcon className="w-4 h-4 mr-2" />
@@ -585,68 +715,41 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </div>
               </div>
 
-              {/* Category and Base Price */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category *
-                  </label>
-                  <select
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name.en || category.name.ar}
-                      </option>
-                    ))}
-                  </select>
+              </div>
+              
+              {/* Pricing Section */}
+              <div className="p-6 space-y-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-6 bg-green-500 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-900">Pricing & Channels</h3>
                 </div>
                 
-                <div>
-                  <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
-                    <CurrencyDollarIcon className="w-4 h-4 mr-2" />
-                    Base Price * ({currency})
-                  </label>
-                  <input
-                    type="number"
-                    value={basePrice}
-                    onChange={(e) => setBasePrice(Number(e.target.value))}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Default Pricing */}
-              <div className="border border-gray-200 p-3 rounded-md bg-gray-50">
+                {/* Default Pricing */}
+                <div className="border border-gray-200 p-4 rounded-lg bg-gray-50">
                 <div className="flex items-center space-x-3">
                   <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                     Default Pricing:
                   </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={defaultPrice}
-                      onChange={(e) => handleDefaultPriceChange(Number(e.target.value))}
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">{currency}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={defaultPrice}
+                        onChange={(e) => handleDefaultPriceChange(Number(e.target.value))}
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-24 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-medium">{currency}</span>
+                    </div>
                   </div>
                   <span className="text-xs text-gray-500">applies to all platforms</span>
                 </div>
               </div>
 
-              {/* Delivery Platform Pricing */}
-              <div className="space-y-4">
+                {/* Delivery Platform Pricing */}
+                <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="flex items-center text-sm font-medium text-gray-700">
                     <CurrencyDollarIcon className="w-4 h-4 mr-2" />
@@ -671,9 +774,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[...pricingChannels, ...customChannels].map((channel) => (
-                    <div key={channel.id} className="bg-gray-50 p-3 rounded-lg">
+                    <div key={channel.id} className="bg-white border border-gray-200 p-4 rounded-lg hover:shadow-sm transition-shadow">
                       <div className="flex items-center justify-between mb-2">
                         <label className="flex items-center text-xs font-medium">
                           <input
@@ -694,22 +797,34 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                           </button>
                         )}
                       </div>
-                      <input
-                        type="number"
-                        value={channel.price}
-                        onChange={(e) => updatePricingChannel(channel.id, 'price', Number(e.target.value))}
-                        min="0"
-                        step="0.01"
-                        disabled={!channel.enabled}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
-                      />
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={channel.price}
+                          onChange={(e) => updatePricingChannel(channel.id, 'price', Number(e.target.value))}
+                          min="0"
+                          step="0.01"
+                          disabled={!channel.enabled}
+                          className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">{currency}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Priority and Preparation Time */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              </div>
+              
+              {/* Settings & Configuration */}
+              <div className="p-6 space-y-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-900">Settings & Configuration</h3>
+                </div>
+                
+                {/* Priority and Preparation Time */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                     <StarIcon className="w-4 h-4 mr-2" />
@@ -718,8 +833,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   <input
                     type="number"
                     value={priority}
-                    onChange={(e) => setPriority(Number(e.target.value))}
+                    onChange={(e) => setPriority(e.target.value === '' ? '' : Number(e.target.value))}
                     min="1"
+                    placeholder="Enter priority number"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -743,8 +859,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 </div>
               </div>
 
-              {/* Tags */}
-              <div className="space-y-4">
+                {/* Tags */}
+                <div className="space-y-4">
                 <label className="flex items-center text-sm font-medium text-gray-700">
                   <TagIcon className="w-4 h-4 mr-2" />
                   Tags
@@ -787,22 +903,32 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 )}
               </div>
 
-              {/* Image Upload */}
-              <div className="space-y-4">
+              </div>
+              
+              {/* Media & Assets */}
+              <div className="p-6 space-y-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-1 h-6 bg-orange-500 rounded-full"></div>
+                  <h3 className="text-lg font-semibold text-gray-900">Media & Assets</h3>
+                </div>
+                
+                {/* Image Upload */}
+                <div className="space-y-4">
                 <label className="flex items-center text-sm font-medium text-gray-700">
                   <PhotoIcon className="w-4 h-4 mr-2" />
                   Product Images
                 </label>
                 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50 hover:bg-gray-100 transition-colors">
                   <div className="text-center">
                     <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
                     <div className="mt-4">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
                       >
+                        <PhotoIcon className="w-4 h-4 mr-2" />
                         Upload Images
                       </button>
                       <input
@@ -843,8 +969,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 )}
               </div>
 
-              {/* Status */}
-              <div>
+                {/* Status */}
+                <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status
                 </label>
@@ -856,12 +982,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                   <option value={1}>Active</option>
                   <option value={0}>Inactive</option>
                 </select>
+                </div>
               </div>
-            </form>
-          </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+              {/* Footer */}
+              <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
             <button
               type="button"
               onClick={handleClose}
@@ -890,6 +1015,20 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 <ArrowRightIcon className="ml-2 w-4 h-4" />
               </button>
             </div>
+          </div>
+        </form>
+            ) : currentStep === 2 && tempProductId ? (
+              <AddOnManagement
+                productId={tempProductId}
+                onBack={() => setCurrentStep(1)}
+                onSave={(categories) => {
+                  toast.success('Add-ons configuration saved successfully!');
+                  onProductAdded();
+                  handleClose();
+                }}
+                className="p-6"
+              />
+            ) : null}
           </div>
         </div>
       </div>

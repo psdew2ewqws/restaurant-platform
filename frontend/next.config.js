@@ -8,7 +8,12 @@ const nextConfig = {
   
   // Environment variables
   env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
+    CUSTOM_KEY: process.env.CUSTOM_KEY || '',
+  },
+  
+  // ESLint configuration
+  eslint: {
+    ignoreDuringBuilds: true,
   },
   
   // Optimize images

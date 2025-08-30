@@ -45,6 +45,11 @@ export interface MenuProduct {
   preparationTime: number;
   tags: string[];
   category?: MenuCategory;
+  company?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

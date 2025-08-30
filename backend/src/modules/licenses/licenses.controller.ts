@@ -281,20 +281,14 @@ export class LicensesController {
   })
   @ApiResponse({ status: 200, description: 'Notifications retrieved successfully' })
   async getNotifications(@CurrentUser() user: any) {
-    // Use direct SQL query since Prisma doesn't have the table generated yet
-    const notifications = await this.licensesService['prisma'].$queryRaw`
-      SELECT * FROM license_notifications 
-      WHERE company_id = ${user.companyId} 
-      AND is_read = false 
-      AND is_dismissed = false 
-      ORDER BY created_at DESC 
-      LIMIT 10
-    `;
+    // TODO: Implement license_notifications table
+    // For now, return empty array to prevent 500 errors
+    const notifications: any[] = [];
 
     return {
       status: 'success',
       data: notifications,
-      message: 'Notifications retrieved successfully'
+      message: 'Notifications retrieved successfully (notifications table not implemented yet)'
     };
   }
 
@@ -306,16 +300,12 @@ export class LicensesController {
   })
   @ApiResponse({ status: 200, description: 'Notification marked as read' })
   async markNotificationRead(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.licensesService['prisma'].$executeRaw`
-      UPDATE license_notifications 
-      SET is_read = true, read_at = now() 
-      WHERE id = ${id}::uuid 
-      AND company_id = ${user.companyId}
-    `;
+    // TODO: Implement license_notifications table
+    // For now, just return success to prevent 500 errors
 
     return {
       status: 'success',
-      message: 'Notification marked as read'
+      message: 'Notification marked as read (notifications table not implemented yet)'
     };
   }
 

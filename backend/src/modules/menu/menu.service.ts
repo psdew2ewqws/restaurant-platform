@@ -39,32 +39,56 @@ export class MenuService {
       ...(tags?.length && { tags: { hasEvery: tags } }),
     };
 
-    // Case-insensitive search using Prisma's ILIKE-equivalent for JSONB
+    // Case-insensitive search using simplified JSONB search
     if (search) {
-      // Use Prisma raw queries for proper case-insensitive JSONB search
-      const searchPattern = `%${search.toLowerCase()}%`;
+      const searchLower = search.toLowerCase();
+      const searchUpper = search.toUpperCase();
+      const searchTitle = search.charAt(0).toUpperCase() + search.slice(1).toLowerCase();
       
       where.OR = [
-        // Search in English names (case-insensitive)
+        // Search in English names - use contains instead of string_contains
         {
           name: {
             path: ['en'],
-            string_contains: search,
-            mode: 'insensitive'
+            string_contains: search
           }
         },
-        // Search in Arabic names (case-insensitive)  
+        // Search in English names with different cases
+        {
+          name: {
+            path: ['en'],
+            string_contains: searchLower
+          }
+        },
+        {
+          name: {
+            path: ['en'],
+            string_contains: searchUpper
+          }
+        },
+        {
+          name: {
+            path: ['en'],
+            string_contains: searchTitle
+          }
+        },
+        // Search in Arabic names
         {
           name: {
             path: ['ar'],
-            string_contains: search,
-            mode: 'insensitive'
+            string_contains: search
+          }
+        },
+        {
+          name: {
+            path: ['ar'],
+            string_contains: searchLower
           }
         },
         // Search in tags (try different cases)
         { 
           tags: { 
-            hasSome: [search, search.toLowerCase(), search.toUpperCase()] 
+            hasSome: [search, searchLower, searchUpper, searchTitle] 
           } 
         }
       ];
@@ -90,6 +114,9 @@ export class MenuService {
         include: {
           category: {
             select: { id: true, name: true }
+          },
+          company: {
+            select: { id: true, name: true, slug: true }
           }
         },
         orderBy,
