@@ -16,6 +16,13 @@ export class ImageUploadService {
   constructor(private readonly prisma: PrismaService) {}
 
   async uploadProductImage(file: Express.Multer.File, productId: string): Promise<{ url: string; filename: string; size: number }> {
+    // Validate input
+    if (!file || !file.buffer) {
+      throw new Error('Invalid file: no buffer provided');
+    }
+
+    console.log(`Processing image: ${file.originalname}, size: ${file.size}, mimetype: ${file.mimetype}`);
+
     // Ensure upload directory exists
     if (!existsSync(this.uploadPath)) {
       await mkdir(this.uploadPath, { recursive: true });
@@ -42,7 +49,7 @@ export class ImageUploadService {
         width: processedImage.width,
         height: processedImage.height,
         mimeType: 'image/webp',
-        productId: productId || null
+        productId: (productId && productId !== 'temp') ? productId : null
       }
     });
 
@@ -66,60 +73,70 @@ export class ImageUploadService {
     let processedBuffer: Buffer;
     let metadata: sharp.Metadata;
 
-    // First pass: resize and convert to WebP
-    let image = sharp(buffer)
-      .resize({
-        width: this.maxWidth,
-        height: this.maxHeight,
-        fit: 'inside', // Maintain aspect ratio
-        withoutEnlargement: true // Don't upscale smaller images
-      })
-      .webp({ quality });
+    // Validate buffer
+    if (!buffer || buffer.length === 0) {
+      throw new Error('Invalid image buffer: empty or null buffer');
+    }
 
-    processedBuffer = await image.toBuffer();
-    metadata = await sharp(processedBuffer).metadata();
-
-    // If still too large, reduce quality iteratively
-    while (processedBuffer.length > this.targetSizeKB * 1024 && quality > 30) {
-      quality -= 10;
-      image = sharp(buffer)
+    try {
+      // First pass: resize and convert to WebP
+      let image = sharp(buffer)
         .resize({
           width: this.maxWidth,
           height: this.maxHeight,
-          fit: 'inside',
-          withoutEnlargement: true
+          fit: 'inside', // Maintain aspect ratio
+          withoutEnlargement: true // Don't upscale smaller images
         })
         .webp({ quality });
-      
+
       processedBuffer = await image.toBuffer();
       metadata = await sharp(processedBuffer).metadata();
+
+      // If still too large, reduce quality iteratively
+      while (processedBuffer.length > this.targetSizeKB * 1024 && quality > 30) {
+        quality -= 10;
+        image = sharp(buffer)
+          .resize({
+            width: this.maxWidth,
+            height: this.maxHeight,
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .webp({ quality });
+        
+        processedBuffer = await image.toBuffer();
+        metadata = await sharp(processedBuffer).metadata();
+      }
+
+      // If still too large, reduce dimensions
+      if (processedBuffer.length > this.targetSizeKB * 1024) {
+        const scaleFactor = Math.sqrt((this.targetSizeKB * 1024) / processedBuffer.length);
+        const newWidth = Math.floor((metadata.width || this.maxWidth) * scaleFactor);
+        const newHeight = Math.floor((metadata.height || this.maxHeight) * scaleFactor);
+
+        image = sharp(buffer)
+          .resize({
+            width: newWidth,
+            height: newHeight,
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .webp({ quality: 80 });
+        
+        processedBuffer = await image.toBuffer();
+        metadata = await sharp(processedBuffer).metadata();
+      }
+
+      return {
+        buffer: processedBuffer,
+        size: processedBuffer.length,
+        width: metadata.width || this.maxWidth,
+        height: metadata.height || this.maxHeight
+      };
+    } catch (error) {
+      console.error('Sharp processing error:', error);
+      throw new Error(`Image processing failed: ${error.message}`);
     }
-
-    // If still too large, reduce dimensions
-    if (processedBuffer.length > this.targetSizeKB * 1024) {
-      const scaleFactor = Math.sqrt((this.targetSizeKB * 1024) / processedBuffer.length);
-      const newWidth = Math.floor((metadata.width || this.maxWidth) * scaleFactor);
-      const newHeight = Math.floor((metadata.height || this.maxHeight) * scaleFactor);
-
-      image = sharp(buffer)
-        .resize({
-          width: newWidth,
-          height: newHeight,
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .webp({ quality: 80 });
-      
-      processedBuffer = await image.toBuffer();
-      metadata = await sharp(processedBuffer).metadata();
-    }
-
-    return {
-      buffer: processedBuffer,
-      size: processedBuffer.length,
-      width: metadata.width || this.maxWidth,
-      height: metadata.height || this.maxHeight
-    };
   }
 
   // Validate image file (more flexible since we process everything)
@@ -180,6 +197,37 @@ export class ImageUploadService {
       await this.prisma.productImage.delete({
         where: { id: imageId }
       });
+    }
+  }
+
+  // Update orphaned images with productId after product creation
+  async updateImageProductId(imageUrls: string[], productId: string): Promise<void> {
+    const filenames = imageUrls.map(url => url.split('/').pop()).filter(Boolean);
+    
+    // Update ProductImage records
+    await this.prisma.productImage.updateMany({
+      where: {
+        filename: { in: filenames },
+        productId: null
+      },
+      data: {
+        productId
+      }
+    });
+
+    // Update MenuProduct with primary image URL and images array
+    if (imageUrls.length > 0) {
+      const primaryImage = imageUrls[0]; // First image as primary
+      
+      await this.prisma.menuProduct.update({
+        where: { id: productId },
+        data: {
+          image: primaryImage,
+          images: imageUrls
+        }
+      });
+      
+      console.log(`Updated product ${productId} with primary image: ${primaryImage}`);
     }
   }
 

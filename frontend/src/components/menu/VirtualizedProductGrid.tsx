@@ -17,6 +17,7 @@ import { MenuProduct, ProductFilters } from '../../types/menu';
 import { getLocalizedText, formatCurrency, getStatusConfig, getTagColor, trackPerformanceMetric } from '../../lib/menu-utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { getImageUrl, getPlaceholderUrl } from '../../utils/imageUrl';
 
 interface VirtualizedProductGridProps {
   filters: ProductFilters;
@@ -159,17 +160,18 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
         )}
         
         {/* Product Image - Enterprise optimized */}
-        <div className="relative aspect-w-16 aspect-h-10 rounded-t-lg overflow-hidden bg-gray-100">
+        <div className="relative w-full h-48 rounded-t-lg overflow-hidden bg-gray-100">
           {product.image ? (
             <Image
-              src={product.image}
+              src={getImageUrl(product.image)}
               alt={getLocalizedText(product.name, language)}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
               className="object-cover"
               loading="lazy"
               placeholder="blur"
-              blurDataURL="/api/placeholder/300x200"
+              blurDataURL={getPlaceholderUrl()}
+              priority={false}
             />
           ) : (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
@@ -284,22 +286,22 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
     );
   }, [selectedProducts, selectionMode, language, user?.role, onProductSelect, onProductEdit, onProductDelete, onProductView]);
 
-  // Row renderer for 4-column grid (renders 4 products per row)
+  // Row renderer for 5-column grid (renders 5 products per row)
   const ProductRow = useMemo(() => ({ index }: { index: number }) => {
-    const rowStartIndex = index * 4;
-    const rowProducts = products.slice(rowStartIndex, rowStartIndex + 4);
+    const rowStartIndex = index * 5;
+    const rowProducts = products.slice(rowStartIndex, rowStartIndex + 5);
     
     if (rowProducts.length === 0) {
       return null;
     }
     
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-6 py-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 px-6 py-3">
         {rowProducts.map((product, colIndex) => (
           <SingleProductCard key={product.id} product={product} />
         ))}
         {/* Fill empty columns with skeleton cards if needed */}
-        {rowProducts.length < 4 && Array.from({ length: 4 - rowProducts.length }).map((_, emptyIndex) => (
+        {rowProducts.length < 5 && Array.from({ length: 5 - rowProducts.length }).map((_, emptyIndex) => (
           <div key={`empty-${emptyIndex}`} className="invisible">
             <ProductCardSkeleton index={rowStartIndex + rowProducts.length + emptyIndex} />
           </div>
@@ -308,8 +310,8 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
     );
   }, [products, SingleProductCard]);
 
-  // Calculate total number of rows (4 products per row)
-  const totalRows = Math.ceil(products.length / 4);
+  // Calculate total number of rows (5 products per row)
+  const totalRows = Math.ceil(products.length / 5);
 
   // Loading footer component
   const LoadingFooter = useCallback(() => {

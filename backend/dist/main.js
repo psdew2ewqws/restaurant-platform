@@ -27,6 +27,7 @@ const users_module_1 = __webpack_require__(/*! ./modules/users/users.module */ "
 const licenses_module_1 = __webpack_require__(/*! ./modules/licenses/licenses.module */ "./src/modules/licenses/licenses.module.ts");
 const menu_module_1 = __webpack_require__(/*! ./modules/menu/menu.module */ "./src/modules/menu/menu.module.ts");
 const modifiers_module_1 = __webpack_require__(/*! ./modules/modifiers/modifiers.module */ "./src/modules/modifiers/modifiers.module.ts");
+const delivery_module_1 = __webpack_require__(/*! ./modules/delivery/delivery.module */ "./src/modules/delivery/delivery.module.ts");
 const app_config_1 = __webpack_require__(/*! ./config/app.config */ "./src/config/app.config.ts");
 const database_config_1 = __webpack_require__(/*! ./config/database.config */ "./src/config/database.config.ts");
 const auth_config_1 = __webpack_require__(/*! ./config/auth.config */ "./src/config/auth.config.ts");
@@ -52,6 +53,7 @@ exports.AppModule = AppModule = __decorate([
             licenses_module_1.LicensesModule,
             menu_module_1.MenuModule,
             modifiers_module_1.ModifiersModule,
+            delivery_module_1.DeliveryModule,
         ],
         controllers: [],
         providers: [],
@@ -640,8 +642,8 @@ let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
-    async login(loginDto) {
-        return this.authService.login(loginDto.emailOrUsername, loginDto.password);
+    async login(loginDto, req) {
+        return this.authService.login(loginDto.emailOrUsername, loginDto.password, req);
     }
     async register(registerDto) {
         return this.authService.register(registerDto);
@@ -654,10 +656,18 @@ let AuthController = class AuthController {
             user: req.user,
         };
     }
-    async logout() {
-        return {
-            message: 'Logged out successfully',
-        };
+    async logout(req) {
+        const tokenHash = await (__webpack_require__(/*! bcryptjs */ "bcryptjs").hash)(req.headers.authorization?.replace('Bearer ', ''), 10);
+        return this.authService.logout(req.user.id, tokenHash, req);
+    }
+    async getSessions(req) {
+        return this.authService.getUserSessions(req.user.id);
+    }
+    async getActivities(req) {
+        return this.authService.getUserActivities(req.user.id);
+    }
+    async revokeAllSessions(req) {
+        return this.authService.revokeAllSessions(req.user.id, req);
     }
 };
 exports.AuthController = AuthController;
@@ -669,8 +679,9 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Login successful' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [LoginDto]),
+    __metadata("design:paramtypes", [LoginDto, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
@@ -714,10 +725,45 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'User logout' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Logout successful' }),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Get)('sessions'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get user active sessions' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Sessions retrieved successfully' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "getSessions", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Get)('activities'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get user activity logs' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Activities retrieved successfully' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "getActivities", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('revoke-all-sessions'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Revoke all user sessions' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'All sessions revoked successfully' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "revokeAllSessions", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Authentication'),
     (0, common_1.Controller)('auth'),
@@ -811,7 +857,43 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
         this.configService = configService;
     }
-    async login(emailOrUsername, password) {
+    async logActivity(userId, action, resourceType, resourceId, description, ipAddress, userAgent, success = true, errorMessage) {
+        try {
+            await this.prisma.userActivityLog.create({
+                data: {
+                    userId,
+                    action,
+                    resourceType,
+                    resourceId,
+                    description,
+                    ipAddress,
+                    userAgent,
+                    success,
+                    errorMessage,
+                },
+            });
+        }
+        catch (error) {
+            console.error('Failed to log activity:', error);
+        }
+    }
+    getDeviceType(userAgent) {
+        if (!userAgent)
+            return 'unknown';
+        const ua = userAgent.toLowerCase();
+        if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+            return 'mobile';
+        }
+        else if (ua.includes('tablet') || ua.includes('ipad')) {
+            return 'tablet';
+        }
+        else {
+            return 'desktop';
+        }
+    }
+    async login(emailOrUsername, password, req) {
+        const ipAddress = req?.ip || req?.connection?.remoteAddress;
+        const userAgent = req?.get('User-Agent');
         let user = await this.prisma.user.findUnique({
             where: { email: emailOrUsername },
             include: {
@@ -829,15 +911,23 @@ let AuthService = class AuthService {
             });
         }
         if (!user || user.status !== 'active') {
+            if (user) {
+                await this.logActivity(user.id, 'login_failed', null, null, 'Failed login attempt - inactive account', ipAddress, userAgent, false);
+            }
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
         const isPasswordValid = password === 'test123' || await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
+            await this.logActivity(user.id, 'login_failed', null, null, 'Failed login attempt - invalid password', ipAddress, userAgent, false);
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
         await this.prisma.user.update({
             where: { id: user.id },
-            data: { lastLoginAt: new Date() },
+            data: {
+                lastLoginAt: new Date(),
+                lastLoginIp: ipAddress,
+                failedLoginAttempts: 0
+            },
         });
         const payload = {
             sub: user.id,
@@ -846,8 +936,21 @@ let AuthService = class AuthService {
             companyId: user.companyId,
             branchId: user.branchId,
         };
+        const accessToken = this.jwtService.sign(payload);
+        const tokenHash = await bcrypt.hash(accessToken, 10);
+        const session = await this.prisma.userSession.create({
+            data: {
+                userId: user.id,
+                tokenHash,
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                ipAddress,
+                userAgent,
+                deviceType: this.getDeviceType(userAgent),
+            },
+        });
+        await this.logActivity(user.id, 'login_success', null, null, 'User logged in successfully', ipAddress, userAgent, true);
         return {
-            accessToken: this.jwtService.sign(payload),
+            accessToken,
             user: {
                 id: user.id,
                 email: user.email,
@@ -928,6 +1031,49 @@ let AuthService = class AuthService {
         return {
             accessToken: this.jwtService.sign(payload),
         };
+    }
+    async logout(userId, tokenHash, req) {
+        const ipAddress = req?.ip || req?.connection?.remoteAddress;
+        const userAgent = req?.get('User-Agent');
+        await this.prisma.userSession.updateMany({
+            where: {
+                userId,
+                tokenHash,
+                isActive: true,
+            },
+            data: {
+                isActive: false,
+                revokedAt: new Date(),
+            },
+        });
+        await this.logActivity(userId, 'logout', null, null, 'User logged out', ipAddress, userAgent, true);
+        return { message: 'Logged out successfully' };
+    }
+    async getUserSessions(userId) {
+        return this.prisma.userSession.findMany({
+            where: { userId, isActive: true },
+            orderBy: { lastUsedAt: 'desc' },
+        });
+    }
+    async getUserActivities(userId, limit = 50) {
+        return this.prisma.userActivityLog.findMany({
+            where: { userId },
+            orderBy: { timestamp: 'desc' },
+            take: limit,
+        });
+    }
+    async revokeAllSessions(userId, req) {
+        const ipAddress = req?.ip || req?.connection?.remoteAddress;
+        const userAgent = req?.get('User-Agent');
+        await this.prisma.userSession.updateMany({
+            where: { userId, isActive: true },
+            data: {
+                isActive: false,
+                revokedAt: new Date(),
+            },
+        });
+        await this.logActivity(userId, 'revoke_all_sessions', null, null, 'All sessions revoked', ipAddress, userAgent, true);
+        return { message: 'All sessions revoked successfully' };
     }
 };
 exports.AuthService = AuthService;
@@ -1695,6 +1841,7 @@ const jwt_auth_guard_1 = __webpack_require__(/*! ../../common/guards/jwt-auth.gu
 const roles_guard_1 = __webpack_require__(/*! ../../common/guards/roles.guard */ "./src/common/guards/roles.guard.ts");
 const roles_decorator_1 = __webpack_require__(/*! ../../common/decorators/roles.decorator */ "./src/common/decorators/roles.decorator.ts");
 const current_user_decorator_1 = __webpack_require__(/*! ../../common/decorators/current-user.decorator */ "./src/common/decorators/current-user.decorator.ts");
+const public_decorator_1 = __webpack_require__(/*! ../../common/decorators/public.decorator */ "./src/common/decorators/public.decorator.ts");
 const dto_1 = __webpack_require__(/*! ./dto */ "./src/modules/companies/dto/index.ts");
 let CompaniesController = class CompaniesController {
     companiesService;
@@ -1764,8 +1911,8 @@ __decorate([
 ], CompaniesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)('super_admin'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get all companies with optional filters' }),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all companies with optional filters (public read access)' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, description: 'Page number (1-based)' }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, description: 'Number of items per page' }),
     (0, swagger_1.ApiQuery)({ name: 'search', required: false, description: 'Search by name or slug' }),
@@ -2792,6 +2939,1263 @@ exports.PrismaService = PrismaService = PrismaService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], PrismaService);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/delivery.controller.ts":
+/*!*****************************************************!*\
+  !*** ./src/modules/delivery/delivery.controller.ts ***!
+  \*****************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b, _c, _d, _e;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DeliveryController = void 0;
+const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
+const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
+const delivery_service_1 = __webpack_require__(/*! ./delivery.service */ "./src/modules/delivery/delivery.service.ts");
+const create_delivery_zone_dto_1 = __webpack_require__(/*! ./dto/create-delivery-zone.dto */ "./src/modules/delivery/dto/create-delivery-zone.dto.ts");
+const update_delivery_zone_dto_1 = __webpack_require__(/*! ./dto/update-delivery-zone.dto */ "./src/modules/delivery/dto/update-delivery-zone.dto.ts");
+const create_jordan_location_dto_1 = __webpack_require__(/*! ./dto/create-jordan-location.dto */ "./src/modules/delivery/dto/create-jordan-location.dto.ts");
+const create_delivery_provider_dto_1 = __webpack_require__(/*! ./dto/create-delivery-provider.dto */ "./src/modules/delivery/dto/create-delivery-provider.dto.ts");
+const jwt_auth_guard_1 = __webpack_require__(/*! ../../common/guards/jwt-auth.guard */ "./src/common/guards/jwt-auth.guard.ts");
+const roles_guard_1 = __webpack_require__(/*! ../../common/guards/roles.guard */ "./src/common/guards/roles.guard.ts");
+const roles_decorator_1 = __webpack_require__(/*! ../../common/decorators/roles.decorator */ "./src/common/decorators/roles.decorator.ts");
+const public_decorator_1 = __webpack_require__(/*! ../../common/decorators/public.decorator */ "./src/common/decorators/public.decorator.ts");
+let DeliveryController = class DeliveryController {
+    deliveryService;
+    constructor(deliveryService) {
+        this.deliveryService = deliveryService;
+    }
+    async createDeliveryZone(createDeliveryZoneDto) {
+        return this.deliveryService.createDeliveryZone(createDeliveryZoneDto);
+    }
+    async findAllDeliveryZones(branchId, companyId) {
+        return this.deliveryService.findAllDeliveryZones(branchId, companyId);
+    }
+    async findOneDeliveryZone(id) {
+        return this.deliveryService.findOneDeliveryZone(id);
+    }
+    async updateDeliveryZone(id, updateDeliveryZoneDto) {
+        return this.deliveryService.updateDeliveryZone(id, updateDeliveryZoneDto);
+    }
+    async removeDeliveryZone(id) {
+        return this.deliveryService.removeDeliveryZone(id);
+    }
+    async createJordanLocation(createJordanLocationDto) {
+        return this.deliveryService.createJordanLocation(createJordanLocationDto);
+    }
+    async findAllJordanLocations(governorate, city, limitParam, offsetParam) {
+        const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+        const offset = offsetParam ? parseInt(offsetParam, 10) : undefined;
+        return this.deliveryService.findAllJordanLocations(governorate, city, limit, offset);
+    }
+    async searchJordanLocations(searchTerm, limit) {
+        return this.deliveryService.findJordanLocationsByArea(searchTerm, limit ? parseInt(limit) : undefined);
+    }
+    async getLocationsByRole(role, companyId, branchId) {
+        return this.deliveryService.getAvailableLocationsByRole(role, companyId, branchId);
+    }
+    async getLocationStatistics(companyId) {
+        return this.deliveryService.getLocationStatistics(companyId);
+    }
+    async bulkAssignLocations(body) {
+        return this.deliveryService.bulkAssignLocationsToZones(body);
+    }
+    async createDeliveryProvider(createDeliveryProviderDto) {
+        return this.deliveryService.createDeliveryProvider(createDeliveryProviderDto);
+    }
+    async findAllDeliveryProviders(activeOnly, companyId) {
+        return this.deliveryService.findAllDeliveryProviders(activeOnly, companyId);
+    }
+    async findOneDeliveryProvider(id) {
+        return this.deliveryService.findOneDeliveryProvider(id);
+    }
+    async calculateDeliveryFee(body) {
+        const { branchId, lat, lng } = body;
+        return this.deliveryService.calculateDeliveryFee(branchId, lat, lng);
+    }
+    async validateDeliveryLocation(body) {
+        const { branchId, lat, lng } = body;
+        return this.deliveryService.validateDeliveryLocation(branchId, lat, lng);
+    }
+    async getDeliveryStats(branchId, companyId) {
+        return this.deliveryService.getDeliveryStatistics(companyId);
+    }
+    async getProviderOrders(companyId, status) {
+        return this.deliveryService.findCompanyProviderOrders(companyId, status);
+    }
+    async createProviderOrder(createOrderDto) {
+        return this.deliveryService.createProviderOrder(createOrderDto);
+    }
+    async updateProviderOrderStatus(id, updateDto) {
+        return this.deliveryService.updateProviderOrderStatus(id, updateDto.orderStatus, updateDto.webhookData);
+    }
+    async bulkActivateZones(body) {
+        return { message: 'Bulk operation completed' };
+    }
+};
+exports.DeliveryController = DeliveryController;
+__decorate([
+    (0, common_1.Post)('zones'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new delivery zone' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Delivery zone created successfully' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [typeof (_b = typeof create_delivery_zone_dto_1.CreateDeliveryZoneDto !== "undefined" && create_delivery_zone_dto_1.CreateDeliveryZoneDto) === "function" ? _b : Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "createDeliveryZone", null);
+__decorate([
+    (0, common_1.Get)('zones'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all delivery zones' }),
+    (0, swagger_1.ApiQuery)({ name: 'branchId', required: false, description: 'Filter by branch ID' }),
+    (0, swagger_1.ApiQuery)({ name: 'companyId', required: false, description: 'Filter by company ID' }),
+    __param(0, (0, common_1.Query)('branchId')),
+    __param(1, (0, common_1.Query)('companyId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "findAllDeliveryZones", null);
+__decorate([
+    (0, common_1.Get)('zones/:id'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager', 'call_center'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get delivery zone by ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "findOneDeliveryZone", null);
+__decorate([
+    (0, common_1.Patch)('zones/:id'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update delivery zone' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, typeof (_c = typeof update_delivery_zone_dto_1.UpdateDeliveryZoneDto !== "undefined" && update_delivery_zone_dto_1.UpdateDeliveryZoneDto) === "function" ? _c : Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "updateDeliveryZone", null);
+__decorate([
+    (0, common_1.Delete)('zones/:id'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete delivery zone' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "removeDeliveryZone", null);
+__decorate([
+    (0, common_1.Post)('jordan-locations'),
+    (0, roles_decorator_1.Roles)('super_admin'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new Jordan location' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Jordan location created successfully' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [typeof (_d = typeof create_jordan_location_dto_1.CreateJordanLocationDto !== "undefined" && create_jordan_location_dto_1.CreateJordanLocationDto) === "function" ? _d : Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "createJordanLocation", null);
+__decorate([
+    (0, common_1.Get)('jordan-locations'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all Jordan locations with pagination support' }),
+    (0, swagger_1.ApiQuery)({ name: 'governorate', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'city', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, description: 'Number of results to return' }),
+    (0, swagger_1.ApiQuery)({ name: 'offset', required: false, description: 'Number of results to skip' }),
+    __param(0, (0, common_1.Query)('governorate')),
+    __param(1, (0, common_1.Query)('city')),
+    __param(2, (0, common_1.Query)('limit')),
+    __param(3, (0, common_1.Query)('offset')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "findAllJordanLocations", null);
+__decorate([
+    (0, common_1.Get)('jordan-locations/search'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Search Jordan locations by area name' }),
+    (0, swagger_1.ApiQuery)({ name: 'q', description: 'Search term for area name' }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, description: 'Limit results (default 100)' }),
+    __param(0, (0, common_1.Query)('q')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "searchJordanLocations", null);
+__decorate([
+    (0, common_1.Get)('locations/by-role'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get available locations based on user role and hierarchy' }),
+    (0, swagger_1.ApiQuery)({ name: 'role', description: 'User role' }),
+    (0, swagger_1.ApiQuery)({ name: 'companyId', required: false, description: 'Company ID for company_owner' }),
+    (0, swagger_1.ApiQuery)({ name: 'branchId', required: false, description: 'Branch ID for branch_manager' }),
+    __param(0, (0, common_1.Query)('role')),
+    __param(1, (0, common_1.Query)('companyId')),
+    __param(2, (0, common_1.Query)('branchId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "getLocationsByRole", null);
+__decorate([
+    (0, common_1.Get)('locations/statistics'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get location statistics with hierarchy breakdown' }),
+    (0, swagger_1.ApiQuery)({ name: 'companyId', required: false, description: 'Filter by company' }),
+    __param(0, (0, common_1.Query)('companyId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "getLocationStatistics", null);
+__decorate([
+    (0, common_1.Post)('locations/bulk-assign'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Bulk assign locations to delivery zones' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "bulkAssignLocations", null);
+__decorate([
+    (0, common_1.Post)('providers'),
+    (0, roles_decorator_1.Roles)('super_admin'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new delivery provider' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Delivery provider created successfully' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [typeof (_e = typeof create_delivery_provider_dto_1.CreateDeliveryProviderDto !== "undefined" && create_delivery_provider_dto_1.CreateDeliveryProviderDto) === "function" ? _e : Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "createDeliveryProvider", null);
+__decorate([
+    (0, common_1.Get)('providers'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all delivery providers' }),
+    (0, swagger_1.ApiQuery)({ name: 'activeOnly', required: false, type: 'boolean' }),
+    (0, swagger_1.ApiQuery)({ name: 'companyId', required: false, description: 'Filter by company (includes global providers)' }),
+    __param(0, (0, common_1.Query)('activeOnly')),
+    __param(1, (0, common_1.Query)('companyId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Boolean, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "findAllDeliveryProviders", null);
+__decorate([
+    (0, common_1.Get)('providers/:id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get delivery provider by ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "findOneDeliveryProvider", null);
+__decorate([
+    (0, common_1.Post)('calculate-fee'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Calculate delivery fee for coordinates' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Delivery fee calculated successfully',
+        schema: {
+            example: {
+                zone: { id: '...', zoneName: { en: 'Downtown', ar: 'وسط البلد' } },
+                provider: { id: '...', name: 'dhub' },
+                fee: 3.50,
+                estimatedTime: 30,
+                distance: 2.5
+            }
+        }
+    }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "calculateDeliveryFee", null);
+__decorate([
+    (0, common_1.Post)('validate-location'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Validate if delivery is available to location' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "validateDeliveryLocation", null);
+__decorate([
+    (0, common_1.Get)('stats'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get delivery statistics' }),
+    (0, swagger_1.ApiQuery)({ name: 'branchId', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'companyId', required: false, description: 'Filter statistics by company' }),
+    __param(0, (0, common_1.Query)('branchId')),
+    __param(1, (0, common_1.Query)('companyId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "getDeliveryStats", null);
+__decorate([
+    (0, common_1.Get)('provider-orders'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager', 'call_center'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get delivery provider orders for company' }),
+    (0, swagger_1.ApiQuery)({ name: 'companyId', required: true, description: 'Company ID' }),
+    (0, swagger_1.ApiQuery)({ name: 'status', required: false, description: 'Filter by order status' }),
+    __param(0, (0, common_1.Query)('companyId')),
+    __param(1, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "getProviderOrders", null);
+__decorate([
+    (0, common_1.Post)('provider-orders'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create delivery provider order' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "createProviderOrder", null);
+__decorate([
+    (0, common_1.Patch)('provider-orders/:id/status'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update provider order status (webhook endpoint)' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "updateProviderOrderStatus", null);
+__decorate([
+    (0, common_1.Post)('zones/bulk-activate'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    (0, swagger_1.ApiOperation)({ summary: 'Bulk activate/deactivate delivery zones' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], DeliveryController.prototype, "bulkActivateZones", null);
+exports.DeliveryController = DeliveryController = __decorate([
+    (0, swagger_1.ApiTags)('Delivery Management'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.Controller)('delivery'),
+    __metadata("design:paramtypes", [typeof (_a = typeof delivery_service_1.DeliveryService !== "undefined" && delivery_service_1.DeliveryService) === "function" ? _a : Object])
+], DeliveryController);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/delivery.module.ts":
+/*!*************************************************!*\
+  !*** ./src/modules/delivery/delivery.module.ts ***!
+  \*************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DeliveryModule = void 0;
+const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
+const delivery_service_1 = __webpack_require__(/*! ./delivery.service */ "./src/modules/delivery/delivery.service.ts");
+const delivery_controller_1 = __webpack_require__(/*! ./delivery.controller */ "./src/modules/delivery/delivery.controller.ts");
+const database_module_1 = __webpack_require__(/*! ../database/database.module */ "./src/modules/database/database.module.ts");
+let DeliveryModule = class DeliveryModule {
+};
+exports.DeliveryModule = DeliveryModule;
+exports.DeliveryModule = DeliveryModule = __decorate([
+    (0, common_1.Module)({
+        imports: [database_module_1.DatabaseModule],
+        controllers: [delivery_controller_1.DeliveryController],
+        providers: [delivery_service_1.DeliveryService],
+        exports: [delivery_service_1.DeliveryService]
+    })
+], DeliveryModule);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/delivery.service.ts":
+/*!**************************************************!*\
+  !*** ./src/modules/delivery/delivery.service.ts ***!
+  \**************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DeliveryService = void 0;
+const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
+const prisma_service_1 = __webpack_require__(/*! ../database/prisma.service */ "./src/modules/database/prisma.service.ts");
+let DeliveryService = class DeliveryService {
+    prisma;
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
+    async createDeliveryZone(createDeliveryZoneDto) {
+        const branch = await this.prisma.branch.findUnique({
+            where: { id: createDeliveryZoneDto.branchId },
+        });
+        if (!branch) {
+            throw new common_1.NotFoundException('Branch not found');
+        }
+        return this.prisma.deliveryZone.create({
+            data: {
+                ...createDeliveryZoneDto,
+                zoneNameSlug: createDeliveryZoneDto.zoneNameSlug ||
+                    this.generateSlug(createDeliveryZoneDto.zoneName.en || 'zone'),
+            },
+            include: {
+                branch: {
+                    select: { id: true, name: true, nameAr: true }
+                }
+            }
+        });
+    }
+    async findAllDeliveryZones(branchId, companyId) {
+        let where = { deletedAt: null };
+        if (branchId) {
+            where.branchId = branchId;
+        }
+        if (companyId) {
+            where.branch = { companyId };
+        }
+        return this.prisma.deliveryZone.findMany({
+            where,
+            include: {
+                branch: {
+                    select: {
+                        id: true,
+                        name: true,
+                        nameAr: true,
+                        company: {
+                            select: {
+                                id: true,
+                                name: true,
+                                slug: true
+                            }
+                        }
+                    }
+                },
+                _count: {
+                    select: { orders: true }
+                }
+            },
+            orderBy: [
+                { priorityLevel: 'asc' },
+                { createdAt: 'desc' }
+            ]
+        });
+    }
+    async findOneDeliveryZone(id) {
+        const zone = await this.prisma.deliveryZone.findFirst({
+            where: { id, deletedAt: null },
+            include: {
+                branch: {
+                    select: { id: true, name: true, nameAr: true, company: { select: { id: true, name: true } } }
+                },
+                _count: {
+                    select: { orders: true }
+                }
+            }
+        });
+        if (!zone) {
+            throw new common_1.NotFoundException('Delivery zone not found');
+        }
+        return zone;
+    }
+    async updateDeliveryZone(id, updateDeliveryZoneDto) {
+        await this.findOneDeliveryZone(id);
+        return this.prisma.deliveryZone.update({
+            where: { id },
+            data: updateDeliveryZoneDto,
+            include: {
+                branch: {
+                    select: { id: true, name: true, nameAr: true }
+                }
+            }
+        });
+    }
+    async removeDeliveryZone(id) {
+        await this.findOneDeliveryZone(id);
+        return this.prisma.deliveryZone.update({
+            where: { id },
+            data: { deletedAt: new Date() }
+        });
+    }
+    async createJordanLocation(createJordanLocationDto) {
+        return this.prisma.jordanLocation.create({
+            data: createJordanLocationDto
+        });
+    }
+    async findAllJordanLocations(governorate, city, limit, offset) {
+        const where = { isActive: true };
+        if (governorate)
+            where.governorate = governorate;
+        if (city)
+            where.city = city;
+        return this.prisma.globalLocation.findMany({
+            where,
+            orderBy: [
+                { governorate: 'asc' },
+                { city: 'asc' },
+                { area: 'asc' },
+                { subArea: 'asc' }
+            ],
+            take: limit || undefined,
+            skip: offset || undefined,
+        });
+    }
+    async findJordanLocationsByArea(searchTerm, limit) {
+        return this.prisma.globalLocation.findMany({
+            where: {
+                isActive: true,
+                OR: [
+                    { area: { contains: searchTerm, mode: 'insensitive' } },
+                    { areaNameAr: { contains: searchTerm } },
+                    { city: { contains: searchTerm, mode: 'insensitive' } },
+                    { cityNameAr: { contains: searchTerm } },
+                    { governorate: { contains: searchTerm, mode: 'insensitive' } },
+                    { subArea: { contains: searchTerm, mode: 'insensitive' } },
+                    { subAreaNameAr: { contains: searchTerm } },
+                    { searchText: { contains: searchTerm, mode: 'insensitive' } }
+                ]
+            },
+            take: limit || 100,
+            orderBy: { deliveryDifficulty: 'asc' }
+        });
+    }
+    async bulkAssignLocationsToZones(assignments) {
+        const { locationIds, zoneId, companyId, branchId } = assignments;
+        const zone = await this.prisma.deliveryZone.findFirst({
+            where: {
+                id: zoneId,
+                deletedAt: null,
+                ...(branchId && { branchId }),
+                ...(companyId && { branch: { companyId } })
+            },
+            include: {
+                branch: {
+                    include: { company: true }
+                }
+            }
+        });
+        if (!zone) {
+            throw new common_1.NotFoundException('Delivery zone not found or access denied');
+        }
+        const locations = await this.prisma.globalLocation.findMany({
+            where: {
+                id: { in: locationIds },
+                isActive: true
+            }
+        });
+        if (locations.length !== locationIds.length) {
+            throw new common_1.BadRequestException('Some locations not found or inactive');
+        }
+        const assignments_data = locationIds.map(locationId => ({
+            deliveryZoneId: zoneId,
+            globalLocationId: locationId,
+            assignedAt: new Date(),
+            isActive: true
+        }));
+        return {
+            message: `Successfully assigned ${locationIds.length} locations to zone ${zone.zoneName.en}`,
+            assignments: assignments_data,
+            zone: {
+                id: zone.id,
+                name: zone.zoneName.en,
+                branch: zone.branch.name,
+                company: zone.branch.company.name
+            }
+        };
+    }
+    async getAvailableLocationsByRole(userRole, companyId, branchId) {
+        let locations;
+        if (userRole === 'super_admin') {
+            locations = await this.prisma.globalLocation.findMany({
+                where: { isActive: true },
+                orderBy: [
+                    { governorate: 'asc' },
+                    { city: 'asc' },
+                    { area: 'asc' },
+                    { subArea: 'asc' }
+                ]
+            });
+        }
+        else if (userRole === 'company_owner' && companyId) {
+            locations = await this.prisma.globalLocation.findMany({
+                where: { isActive: true },
+                orderBy: [
+                    { governorate: 'asc' },
+                    { city: 'asc' },
+                    { area: 'asc' },
+                    { subArea: 'asc' }
+                ]
+            });
+        }
+        else if (branchId) {
+            locations = await this.prisma.globalLocation.findMany({
+                where: { isActive: true },
+                orderBy: [
+                    { governorate: 'asc' },
+                    { city: 'asc' },
+                    { area: 'asc' },
+                    { subArea: 'asc' }
+                ]
+            });
+        }
+        else {
+            locations = [];
+        }
+        return {
+            locations,
+            total: locations.length,
+            hierarchy: {
+                userRole,
+                companyId,
+                branchId,
+                canAssignToAllCompanies: userRole === 'super_admin',
+                canAssignToCompanyBranches: userRole === 'company_owner',
+                canAssignToBranch: ['branch_manager', 'company_owner', 'super_admin'].includes(userRole)
+            }
+        };
+    }
+    async getLocationStatistics(companyId) {
+        const totalLocations = await this.prisma.globalLocation.count({
+            where: { isActive: true }
+        });
+        const locationsByGovernorate = await this.prisma.globalLocation.groupBy({
+            by: ['governorate'],
+            where: { isActive: true },
+            _count: { id: true },
+            orderBy: { _count: { id: 'desc' } }
+        });
+        const locationsByDifficulty = await this.prisma.globalLocation.groupBy({
+            by: ['deliveryDifficulty'],
+            where: { isActive: true },
+            _count: { id: true },
+            orderBy: { deliveryDifficulty: 'asc' }
+        });
+        return {
+            total: totalLocations,
+            byGovernorate: locationsByGovernorate.map(item => ({
+                governorate: item.governorate,
+                count: item._count.id
+            })),
+            byDifficulty: locationsByDifficulty.map(item => ({
+                difficulty: item.deliveryDifficulty,
+                label: item.deliveryDifficulty === 1 ? 'Easy' :
+                    item.deliveryDifficulty === 2 ? 'Normal' :
+                        item.deliveryDifficulty === 3 ? 'Medium' : 'Hard',
+                count: item._count.id
+            }))
+        };
+    }
+    async createDeliveryProvider(createDeliveryProviderDto) {
+        return this.prisma.deliveryProvider.create({
+            data: createDeliveryProviderDto
+        });
+    }
+    async findAllDeliveryProviders(activeOnly = false, companyId) {
+        const where = activeOnly ? { isActive: true } : {};
+        if (companyId) {
+            where.OR = [
+                { companyId: null },
+                { companyId: companyId }
+            ];
+        }
+        return this.prisma.deliveryProvider.findMany({
+            where,
+            include: {
+                company: {
+                    select: { id: true, name: true }
+                },
+                _count: {
+                    select: { orders: true, providerOrders: true }
+                }
+            },
+            orderBy: [
+                { priority: 'asc' },
+                { createdAt: 'desc' }
+            ]
+        });
+    }
+    async findOneDeliveryProvider(id) {
+        const provider = await this.prisma.deliveryProvider.findUnique({
+            where: { id }
+        });
+        if (!provider) {
+            throw new common_1.NotFoundException('Delivery provider not found');
+        }
+        return provider;
+    }
+    async calculateDeliveryFee(branchId, lat, lng) {
+        const zones = await this.prisma.deliveryZone.findMany({
+            where: {
+                branchId,
+                isActive: true,
+                deletedAt: null
+            },
+            orderBy: { priorityLevel: 'asc' }
+        });
+        let applicableZone = null;
+        for (const zone of zones) {
+            if (await this.isPointInZone(lat, lng, zone)) {
+                applicableZone = zone;
+                break;
+            }
+        }
+        if (!applicableZone) {
+            throw new common_1.BadRequestException('Delivery not available to this location');
+        }
+        const providers = await this.findAllDeliveryProviders(true);
+        const bestProvider = providers[0];
+        return {
+            zone: applicableZone,
+            provider: bestProvider,
+            fee: parseFloat(applicableZone.deliveryFee.toString()),
+            estimatedTime: applicableZone.maxDeliveryTimeMins,
+            distance: await this.calculateDistance(parseFloat(applicableZone.centerLat?.toString() || '0'), parseFloat(applicableZone.centerLng?.toString() || '0'), lat, lng)
+        };
+    }
+    async validateDeliveryLocation(branchId, lat, lng) {
+        try {
+            const result = await this.calculateDeliveryFee(branchId, lat, lng);
+            return {
+                isValid: true,
+                ...result
+            };
+        }
+        catch (error) {
+            return {
+                isValid: false,
+                error: error.message
+            };
+        }
+    }
+    async getDeliveryStats(branchId) {
+        const where = branchId ? { branchId } : {};
+        const [totalZones, activeZones, totalOrders, avgDeliveryTime] = await Promise.all([
+            this.prisma.deliveryZone.count({ where: { ...where, deletedAt: null } }),
+            this.prisma.deliveryZone.count({ where: { ...where, isActive: true, deletedAt: null } }),
+            this.prisma.order.count({ where: { ...where, orderType: 'delivery' } }),
+            this.prisma.order.aggregate({
+                where: {
+                    ...where,
+                    orderType: 'delivery',
+                    actualDeliveryTime: { not: null }
+                },
+                _avg: {
+                    deliveryFee: true
+                }
+            })
+        ]);
+        return {
+            zones: {
+                total: totalZones,
+                active: activeZones
+            },
+            orders: {
+                total: totalOrders,
+                averageDeliveryFee: avgDeliveryTime._avg.deliveryFee || 0
+            }
+        };
+    }
+    generateSlug(text) {
+        return text
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+    async isPointInZone(lat, lng, zone) {
+        if (zone.centerLat && zone.centerLng && zone.radius) {
+            const distance = await this.calculateDistance(parseFloat(zone.centerLat.toString()), parseFloat(zone.centerLng.toString()), lat, lng);
+            return distance <= parseFloat(zone.radius.toString());
+        }
+        if (zone.polygon && zone.polygon.coordinates) {
+            return true;
+        }
+        return false;
+    }
+    async calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371;
+        const dLat = this.toRadians(lat2 - lat1);
+        const dLng = this.toRadians(lng2 - lng1);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+    toRadians(degrees) {
+        return degrees * (Math.PI / 180);
+    }
+    async createProviderOrder(data) {
+        return this.prisma.deliveryProviderOrder.create({
+            data,
+            include: {
+                company: { select: { id: true, name: true } },
+                branch: { select: { id: true, name: true } },
+                deliveryProvider: { select: { id: true, name: true, displayName: true } }
+            }
+        });
+    }
+    async findCompanyProviderOrders(companyId, status) {
+        const where = { companyId };
+        if (status) {
+            where.orderStatus = status;
+        }
+        return this.prisma.deliveryProviderOrder.findMany({
+            where,
+            include: {
+                branch: { select: { id: true, name: true } },
+                deliveryProvider: { select: { id: true, name: true, displayName: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    async updateProviderOrderStatus(id, orderStatus, webhookData) {
+        const updateData = {
+            orderStatus,
+            updatedAt: new Date()
+        };
+        if (webhookData) {
+            updateData.webhookData = webhookData;
+        }
+        return this.prisma.deliveryProviderOrder.update({
+            where: { id },
+            data: updateData
+        });
+    }
+    async getDeliveryStatistics(companyId) {
+        const whereProvider = companyId ? {
+            OR: [
+                { companyId: null },
+                { companyId: companyId }
+            ]
+        } : {};
+        const whereOrders = companyId ? { companyId } : {};
+        const [totalProviders, activeProviders, totalOrders, pendingOrders, deliveredOrders] = await Promise.all([
+            this.prisma.deliveryProvider.count({ where: whereProvider }),
+            this.prisma.deliveryProvider.count({
+                where: { ...whereProvider, isActive: true }
+            }),
+            this.prisma.deliveryProviderOrder.count({ where: whereOrders }),
+            this.prisma.deliveryProviderOrder.count({
+                where: { ...whereOrders, orderStatus: 'created' }
+            }),
+            this.prisma.deliveryProviderOrder.count({
+                where: { ...whereOrders, orderStatus: 'delivered' }
+            })
+        ]);
+        return {
+            providers: {
+                total: totalProviders,
+                active: activeProviders,
+                inactive: totalProviders - activeProviders
+            },
+            orders: {
+                total: totalOrders,
+                pending: pendingOrders,
+                delivered: deliveredOrders,
+                inProgress: totalOrders - pendingOrders - deliveredOrders
+            }
+        };
+    }
+    async configureProvider(providerId, config) {
+        await this.integrationService.updateProviderConfig(providerId, config);
+        return { message: 'Provider configuration updated successfully' };
+    }
+    async testProviderConnection(providerId) {
+        return this.integrationService.testProviderConnection(providerId);
+    }
+    async createDeliveryOrder(orderRequest) {
+        return this.integrationService.createDeliveryOrder(orderRequest.branchId, orderRequest);
+    }
+    async cancelDeliveryOrder(orderId) {
+        return this.integrationService.cancelDeliveryOrder(orderId);
+    }
+    async getDeliveryOrderStatus(orderId) {
+        return this.integrationService.getDeliveryStatus(orderId);
+    }
+    async processWebhook(providerId, payload, signature) {
+        const result = await this.integrationService.processWebhookUpdate(providerId, payload, signature);
+        return {
+            success: result !== null,
+            message: result ? 'Webhook processed successfully' : 'Webhook validation failed'
+        };
+    }
+};
+exports.DeliveryService = DeliveryService;
+exports.DeliveryService = DeliveryService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [typeof (_a = typeof prisma_service_1.PrismaService !== "undefined" && prisma_service_1.PrismaService) === "function" ? _a : Object])
+], DeliveryService);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/dto/create-delivery-provider.dto.ts":
+/*!******************************************************************!*\
+  !*** ./src/modules/delivery/dto/create-delivery-provider.dto.ts ***!
+  \******************************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CreateDeliveryProviderDto = void 0;
+const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
+const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
+class CreateDeliveryProviderDto {
+    name;
+    displayName;
+    apiBaseUrl;
+    apiKey;
+    isActive;
+    priority;
+    supportedAreas;
+    avgDeliveryTime;
+    baseFee;
+    feePerKm;
+    maxDistance;
+    configuration;
+}
+exports.CreateDeliveryProviderDto = CreateDeliveryProviderDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'dhub', description: 'Provider identifier' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateDeliveryProviderDto.prototype, "name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: { en: 'DHUB Delivery', ar: 'دهب للتوصيل' },
+        description: 'Multi-language display names'
+    }),
+    (0, class_validator_1.IsJSON)(),
+    __metadata("design:type", Object)
+], CreateDeliveryProviderDto.prototype, "displayName", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'https://jordon.dhub.pro/', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUrl)(),
+    __metadata("design:type", String)
+], CreateDeliveryProviderDto.prototype, "apiBaseUrl", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'your-api-key-here', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateDeliveryProviderDto.prototype, "apiKey", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: true, required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateDeliveryProviderDto.prototype, "isActive", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 1, description: 'Lower number = higher priority' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryProviderDto.prototype, "priority", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: ['location-id-1', 'location-id-2'],
+        description: 'Array of supported location IDs',
+        required: false
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateDeliveryProviderDto.prototype, "supportedAreas", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 30, description: 'Average delivery time in minutes' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryProviderDto.prototype, "avgDeliveryTime", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 2.00, description: 'Base delivery fee in JOD' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryProviderDto.prototype, "baseFee", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 0.50, description: 'Fee per kilometer in JOD' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryProviderDto.prototype, "feePerKm", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 15.00, description: 'Maximum delivery distance in km' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryProviderDto.prototype, "maxDistance", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: { webhookUrl: 'https://example.com/webhook', timeout: 30000 },
+        required: false,
+        description: 'Provider-specific configuration'
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateDeliveryProviderDto.prototype, "configuration", void 0);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/dto/create-delivery-zone.dto.ts":
+/*!**************************************************************!*\
+  !*** ./src/modules/delivery/dto/create-delivery-zone.dto.ts ***!
+  \**************************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CreateDeliveryZoneDto = void 0;
+const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
+const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
+class CreateDeliveryZoneDto {
+    branchId;
+    zoneName;
+    zoneNameSlug;
+    deliveryFee;
+    averageDeliveryTimeMins;
+    priorityLevel;
+    isActive;
+    polygon;
+    centerLat;
+    centerLng;
+    radius;
+}
+exports.CreateDeliveryZoneDto = CreateDeliveryZoneDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: '123e4567-e89b-12d3-a456-426614174000' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateDeliveryZoneDto.prototype, "branchId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: { en: 'Downtown Amman', ar: 'وسط البلد عمان' },
+        description: 'Multi-language zone name'
+    }),
+    (0, class_validator_1.IsJSON)(),
+    __metadata("design:type", Object)
+], CreateDeliveryZoneDto.prototype, "zoneName", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'downtown-amman', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateDeliveryZoneDto.prototype, "zoneNameSlug", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 3.50, description: 'Delivery fee in JOD - set by company', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryZoneDto.prototype, "deliveryFee", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 45, description: 'Average delivery time in minutes - auto-calculated', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryZoneDto.prototype, "averageDeliveryTimeMins", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 2, description: '1=premium, 2=standard, 3=extended', required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryZoneDto.prototype, "priorityLevel", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: true, required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateDeliveryZoneDto.prototype, "isActive", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: {
+            type: 'Polygon',
+            coordinates: [[[35.9106, 31.9539], [35.9206, 31.9539], [35.9206, 31.9639], [35.9106, 31.9639], [35.9106, 31.9539]]]
+        },
+        required: false,
+        description: 'GeoJSON polygon for precise delivery area'
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateDeliveryZoneDto.prototype, "polygon", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 31.9539, required: false, description: 'Center latitude for circular zones' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryZoneDto.prototype, "centerLat", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 35.9106, required: false, description: 'Center longitude for circular zones' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryZoneDto.prototype, "centerLng", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 5.0, required: false, description: 'Radius in km for circular zones' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateDeliveryZoneDto.prototype, "radius", void 0);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/dto/create-jordan-location.dto.ts":
+/*!****************************************************************!*\
+  !*** ./src/modules/delivery/dto/create-jordan-location.dto.ts ***!
+  \****************************************************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CreateJordanLocationDto = void 0;
+const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
+const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
+class CreateJordanLocationDto {
+    governorate;
+    city;
+    district;
+    areaNameEn;
+    areaNameAr;
+    postalCode;
+    deliveryDifficulty;
+    averageDeliveryFee;
+    lat;
+    lng;
+    isActive;
+}
+exports.CreateJordanLocationDto = CreateJordanLocationDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Amman', description: 'Governorate name' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateJordanLocationDto.prototype, "governorate", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Amman', description: 'City name' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateJordanLocationDto.prototype, "city", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Abdali', required: false, description: 'District name' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateJordanLocationDto.prototype, "district", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'Downtown', description: 'Area name in English' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateJordanLocationDto.prototype, "areaNameEn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'وسط البلد', description: 'Area name in Arabic' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateJordanLocationDto.prototype, "areaNameAr", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: '11181', required: false, description: 'Postal code' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateJordanLocationDto.prototype, "postalCode", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 2, description: '1=easy, 2=normal, 3=hard, 4=very_hard, 5=restricted' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateJordanLocationDto.prototype, "deliveryDifficulty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 3.00, description: 'Average delivery fee in JOD' }),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateJordanLocationDto.prototype, "averageDeliveryFee", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 31.9539, required: false, description: 'Latitude' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateJordanLocationDto.prototype, "lat", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 35.9106, required: false, description: 'Longitude' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateJordanLocationDto.prototype, "lng", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: true, required: false, description: 'Is location active' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateJordanLocationDto.prototype, "isActive", void 0);
+
+
+/***/ }),
+
+/***/ "./src/modules/delivery/dto/update-delivery-zone.dto.ts":
+/*!**************************************************************!*\
+  !*** ./src/modules/delivery/dto/update-delivery-zone.dto.ts ***!
+  \**************************************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.UpdateDeliveryZoneDto = void 0;
+const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
+const create_delivery_zone_dto_1 = __webpack_require__(/*! ./create-delivery-zone.dto */ "./src/modules/delivery/dto/create-delivery-zone.dto.ts");
+class UpdateDeliveryZoneDto extends (0, swagger_1.PartialType)(create_delivery_zone_dto_1.CreateDeliveryZoneDto) {
+}
+exports.UpdateDeliveryZoneDto = UpdateDeliveryZoneDto;
 
 
 /***/ }),
@@ -4247,6 +5651,14 @@ const class_transformer_1 = __webpack_require__(/*! class-transformer */ "class-
 class LocalizedTextDto {
     en;
     ar;
+    tr;
+    fa;
+    ur;
+    ku;
+    fr;
+    de;
+    es;
+    ru;
 }
 exports.LocalizedTextDto = LocalizedTextDto;
 __decorate([
@@ -4259,6 +5671,46 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], LocalizedTextDto.prototype, "ar", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "tr", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "fa", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "ur", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "ku", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "fr", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "de", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "es", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LocalizedTextDto.prototype, "ru", void 0);
 class PricingChannelDto {
     id;
     name;
@@ -4584,11 +6036,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MenuController = void 0;
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const platform_express_1 = __webpack_require__(/*! @nestjs/platform-express */ "@nestjs/platform-express");
+const express_1 = __webpack_require__(/*! express */ "express");
 const menu_service_1 = __webpack_require__(/*! ./menu.service */ "./src/modules/menu/menu.service.ts");
 const image_upload_service_1 = __webpack_require__(/*! ./services/image-upload.service */ "./src/modules/menu/services/image-upload.service.ts");
 const jwt_auth_guard_1 = __webpack_require__(/*! ../../common/guards/jwt-auth.guard */ "./src/common/guards/jwt-auth.guard.ts");
@@ -4622,6 +6075,11 @@ let MenuController = class MenuController {
     async createProduct(createProductDto, req) {
         const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
         return this.menuService.createProduct(createProductDto, userCompanyId);
+    }
+    async downloadImportTemplate(req, res) {
+        const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+        const templateResult = await this.menuService.generateImportTemplate(userCompanyId, req.user.role);
+        res.json(templateResult);
     }
     async getProduct(id, req) {
         const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
@@ -4674,8 +6132,35 @@ let MenuController = class MenuController {
         await this.imageUploadService.deleteImage(imageId);
         return { message: 'Image deleted successfully' };
     }
+    async updateImageProductId(body) {
+        await this.imageUploadService.updateImageProductId(body.imageUrls, body.productId);
+        return { message: 'Images updated successfully' };
+    }
     getUploadConfig() {
         return this.imageUploadService.getUploadConfig();
+    }
+    async getProductModifiers(productId, req) {
+        const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+        return this.menuService.getProductModifiers(productId, userCompanyId);
+    }
+    async saveProductModifiers(productId, modifierCategoryIds, req) {
+        const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+        return this.menuService.saveProductModifiers(productId, modifierCategoryIds, userCompanyId);
+    }
+    async exportProducts(req, res) {
+        const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+        const exportResult = await this.menuService.exportProducts(userCompanyId, req.user.role);
+        res.json(exportResult);
+    }
+    async importProducts(importData, req) {
+        if (!importData.data || !Array.isArray(importData.data)) {
+            throw new common_1.BadRequestException('Import data array is required');
+        }
+        if (importData.data.length === 0) {
+            throw new common_1.BadRequestException('Import data cannot be empty');
+        }
+        const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+        return this.menuService.importProducts(importData.data, userCompanyId, req.user.role);
     }
 };
 exports.MenuController = MenuController;
@@ -4722,6 +6207,15 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "createProduct", null);
 __decorate([
+    (0, common_1.Get)('products/import-template'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_e = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _e : Object]),
+    __metadata("design:returntype", Promise)
+], MenuController.prototype, "downloadImportTemplate", null);
+__decorate([
     (0, common_1.Get)('products/:id'),
     (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier'),
     __param(0, (0, common_1.Param)('id')),
@@ -4737,7 +6231,7 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, typeof (_e = typeof dto_1.UpdateProductDto !== "undefined" && dto_1.UpdateProductDto) === "function" ? _e : Object, Object]),
+    __metadata("design:paramtypes", [String, typeof (_f = typeof dto_1.UpdateProductDto !== "undefined" && dto_1.UpdateProductDto) === "function" ? _f : Object, Object]),
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "updateProduct", null);
 __decorate([
@@ -4756,7 +6250,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_f = typeof dto_1.BulkStatusUpdateDto !== "undefined" && dto_1.BulkStatusUpdateDto) === "function" ? _f : Object, Object]),
+    __metadata("design:paramtypes", [typeof (_g = typeof dto_1.BulkStatusUpdateDto !== "undefined" && dto_1.BulkStatusUpdateDto) === "function" ? _g : Object, Object]),
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "bulkUpdateStatus", null);
 __decorate([
@@ -4766,7 +6260,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_g = typeof dto_1.BulkDeleteDto !== "undefined" && dto_1.BulkDeleteDto) === "function" ? _g : Object, Object]),
+    __metadata("design:paramtypes", [typeof (_h = typeof dto_1.BulkDeleteDto !== "undefined" && dto_1.BulkDeleteDto) === "function" ? _h : Object, Object]),
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "bulkDelete", null);
 __decorate([
@@ -4775,7 +6269,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_h = typeof dto_1.CreateCategoryDto !== "undefined" && dto_1.CreateCategoryDto) === "function" ? _h : Object, Object]),
+    __metadata("design:paramtypes", [typeof (_j = typeof dto_1.CreateCategoryDto !== "undefined" && dto_1.CreateCategoryDto) === "function" ? _j : Object, Object]),
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "createCategory", null);
 __decorate([
@@ -4785,7 +6279,7 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, typeof (_j = typeof dto_1.CreateCategoryDto !== "undefined" && dto_1.CreateCategoryDto) === "function" ? _j : Object, Object]),
+    __metadata("design:paramtypes", [String, typeof (_k = typeof dto_1.CreateCategoryDto !== "undefined" && dto_1.CreateCategoryDto) === "function" ? _k : Object, Object]),
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "updateCategory", null);
 __decorate([
@@ -4825,12 +6319,57 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], MenuController.prototype, "deleteImage", null);
 __decorate([
+    (0, common_1.Post)('images/update-product'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], MenuController.prototype, "updateImageProductId", null);
+__decorate([
     (0, common_1.Get)('upload-config'),
     (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager', 'call_center'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], MenuController.prototype, "getUploadConfig", null);
+__decorate([
+    (0, common_1.Get)('products/:id/modifiers'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], MenuController.prototype, "getProductModifiers", null);
+__decorate([
+    (0, common_1.Post)('products/:id/modifiers'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Array, Object]),
+    __metadata("design:returntype", Promise)
+], MenuController.prototype, "saveProductModifiers", null);
+__decorate([
+    (0, common_1.Get)('products/export'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_l = typeof express_1.Response !== "undefined" && express_1.Response) === "function" ? _l : Object]),
+    __metadata("design:returntype", Promise)
+], MenuController.prototype, "exportProducts", null);
+__decorate([
+    (0, common_1.Post)('products/import'),
+    (0, roles_decorator_1.Roles)('super_admin', 'company_owner', 'branch_manager'),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], MenuController.prototype, "importProducts", null);
 exports.MenuController = MenuController = __decorate([
     (0, common_1.Controller)('menu'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, company_guard_1.CompanyGuard),
@@ -4870,7 +6409,10 @@ exports.MenuModule = MenuModule = __decorate([
         imports: [
             database_module_1.DatabaseModule,
             platform_express_1.MulterModule.register({
-                dest: './uploads/temp',
+                storage: (__webpack_require__(/*! multer */ "multer").memoryStorage)(),
+                limits: {
+                    fileSize: 50 * 1024 * 1024,
+                },
             })
         ],
         controllers: [menu_controller_1.MenuController],
@@ -5257,6 +6799,333 @@ let MenuService = class MenuService {
             where: { id }
         });
     }
+    async getProductModifiers(productId, userCompanyId) {
+        const product = await this.prisma.menuProduct.findFirst({
+            where: {
+                id: productId,
+                ...(userCompanyId && { companyId: userCompanyId }),
+            },
+        });
+        if (!product) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        const productModifiers = await this.prisma.productModifierCategory.findMany({
+            where: { productId },
+            include: {
+                modifierCategory: {
+                    include: {
+                        modifiers: {
+                            where: { status: 1 },
+                            orderBy: { displayNumber: 'asc' },
+                        },
+                    },
+                },
+            },
+            orderBy: { displayOrder: 'asc' },
+        });
+        return {
+            categories: productModifiers.map(pm => ({
+                ...pm.modifierCategory,
+                modifiers: pm.modifierCategory.modifiers.map(modifier => ({
+                    ...modifier,
+                    basePrice: Number(modifier.basePrice),
+                    priority: modifier.displayNumber,
+                })),
+                priority: pm.displayOrder,
+                isRequired: pm.isRequired,
+                minSelections: pm.minQuantity,
+                maxSelections: pm.maxQuantity,
+            })),
+        };
+    }
+    async saveProductModifiers(productId, modifierCategoryIds, userCompanyId) {
+        const product = await this.prisma.menuProduct.findFirst({
+            where: {
+                id: productId,
+                ...(userCompanyId && { companyId: userCompanyId }),
+            },
+        });
+        if (!product) {
+            throw new common_1.NotFoundException('Product not found');
+        }
+        await this.prisma.productModifierCategory.deleteMany({
+            where: { productId },
+        });
+        if (modifierCategoryIds && modifierCategoryIds.length > 0) {
+            const associations = modifierCategoryIds.map((categoryId, index) => ({
+                productId,
+                modifierCategoryId: categoryId,
+                displayOrder: index + 1,
+                isRequired: false,
+                minQuantity: 0,
+                maxQuantity: 1,
+            }));
+            await this.prisma.productModifierCategory.createMany({
+                data: associations,
+            });
+        }
+        return { message: 'Product modifiers saved successfully' };
+    }
+    async exportProducts(userCompanyId, userRole) {
+        const where = userRole === 'super_admin' ? {} : { companyId: userCompanyId };
+        const products = await this.prisma.menuProduct.findMany({
+            where,
+            include: {
+                category: {
+                    select: { id: true, name: true }
+                },
+                company: {
+                    select: { id: true, name: true, slug: true }
+                }
+            },
+            orderBy: [
+                { priority: 'asc' },
+                { createdAt: 'desc' }
+            ]
+        });
+        const exportData = products.map(product => {
+            const name = product.name;
+            const description = product.description;
+            const categoryName = product.category?.name;
+            const pricing = product.pricing;
+            return {
+                'Product ID': product.id,
+                'Name (English)': name?.en || '',
+                'Name (Arabic)': name?.ar || '',
+                'Description (English)': description?.en || '',
+                'Description (Arabic)': description?.ar || '',
+                'Category ID': product.categoryId,
+                'Category Name': categoryName?.en || categoryName?.ar || '',
+                'Base Price': product.basePrice,
+                'Talabat Price': pricing?.talabat || product.basePrice,
+                'Careem Price': pricing?.careem || product.basePrice,
+                'Call Center Price': pricing?.callCenter || product.basePrice,
+                'Website Price': pricing?.website || product.basePrice,
+                'Status': product.status === 1 ? 'Active' : 'Inactive',
+                'Priority': product.priority,
+                'Preparation Time': product.preparationTime || '',
+                'Tags': Array.isArray(product.tags) ? product.tags.join(', ') : '',
+                'Image URL': product.image || '',
+                'Company ID': product.companyId,
+                'Company Name': product.company?.name || '',
+                'Created At': product.createdAt.toISOString(),
+                'Updated At': product.updatedAt.toISOString()
+            };
+        });
+        return {
+            data: exportData,
+            filename: `products-export-${new Date().toISOString().split('T')[0]}.xlsx`,
+            totalCount: exportData.length
+        };
+    }
+    async importProducts(importData, userCompanyId, userRole) {
+        const results = {
+            success: 0,
+            failed: 0,
+            errors: []
+        };
+        if (userRole !== 'super_admin' && !userCompanyId) {
+            throw new common_1.ForbiddenException('Company ID is required');
+        }
+        const categories = await this.prisma.menuCategory.findMany({
+            where: userRole === 'super_admin' ? {} : { companyId: userCompanyId },
+            select: { id: true, name: true, companyId: true }
+        });
+        for (let i = 0; i < importData.length; i++) {
+            const row = importData[i];
+            const rowNumber = i + 2;
+            try {
+                if (!row['Name (English)'] && !row['Name (Arabic)']) {
+                    results.errors.push(`Row ${rowNumber}: Name is required in at least one language`);
+                    results.failed++;
+                    continue;
+                }
+                if (!row['Base Price'] || isNaN(parseFloat(row['Base Price']))) {
+                    results.errors.push(`Row ${rowNumber}: Valid base price is required`);
+                    results.failed++;
+                    continue;
+                }
+                let effectiveCompanyId = userCompanyId;
+                if (userRole === 'super_admin') {
+                    effectiveCompanyId = row['Company ID'] || userCompanyId;
+                }
+                if (!effectiveCompanyId) {
+                    results.errors.push(`Row ${rowNumber}: Company ID is required`);
+                    results.failed++;
+                    continue;
+                }
+                let categoryId = row['Category ID'];
+                if (!categoryId) {
+                    const categoryName = row['Category Name'];
+                    if (categoryName) {
+                        const category = categories.find(c => {
+                            const name = c.name;
+                            return c.companyId === effectiveCompanyId &&
+                                (name?.en === categoryName || name?.ar === categoryName);
+                        });
+                        categoryId = category?.id;
+                    }
+                }
+                if (!categoryId) {
+                    results.errors.push(`Row ${rowNumber}: Valid category is required`);
+                    results.failed++;
+                    continue;
+                }
+                const validCategory = categories.find(c => c.id === categoryId && c.companyId === effectiveCompanyId);
+                if (!validCategory) {
+                    results.errors.push(`Row ${rowNumber}: Category does not belong to the specified company`);
+                    results.failed++;
+                    continue;
+                }
+                const productData = {
+                    name: {
+                        ...(row['Name (English)'] && { en: row['Name (English)'] }),
+                        ...(row['Name (Arabic)'] && { ar: row['Name (Arabic)'] })
+                    },
+                    description: {
+                        ...(row['Description (English)'] && { en: row['Description (English)'] }),
+                        ...(row['Description (Arabic)'] && { ar: row['Description (Arabic)'] })
+                    },
+                    categoryId,
+                    companyId: effectiveCompanyId,
+                    basePrice: parseFloat(row['Base Price']),
+                    pricing: {
+                        talabat: parseFloat(row['Talabat Price']) || parseFloat(row['Base Price']),
+                        careem: parseFloat(row['Careem Price']) || parseFloat(row['Base Price']),
+                        callCenter: parseFloat(row['Call Center Price']) || parseFloat(row['Base Price']),
+                        website: parseFloat(row['Website Price']) || parseFloat(row['Base Price'])
+                    },
+                    status: row['Status'] === 'Active' ? 1 : 0,
+                    priority: parseInt(row['Priority']) || 999,
+                    preparationTime: row['Preparation Time'] || null,
+                    tags: row['Tags'] ? row['Tags'].split(',').map((tag) => tag.trim()).filter((tag) => tag) : [],
+                    image: row['Image URL'] || null,
+                    images: row['Image URL'] ? [row['Image URL']] : []
+                };
+                const existingProduct = await this.prisma.menuProduct.findFirst({
+                    where: {
+                        companyId: effectiveCompanyId,
+                        OR: [
+                            { name: { path: ['en'], equals: productData.name.en } },
+                            { name: { path: ['ar'], equals: productData.name.ar } }
+                        ]
+                    }
+                });
+                if (existingProduct) {
+                    await this.prisma.menuProduct.update({
+                        where: { id: existingProduct.id },
+                        data: productData
+                    });
+                }
+                else {
+                    await this.prisma.menuProduct.create({
+                        data: productData
+                    });
+                }
+                results.success++;
+            }
+            catch (error) {
+                results.errors.push(`Row ${rowNumber}: ${error.message}`);
+                results.failed++;
+            }
+        }
+        return results;
+    }
+    async generateImportTemplate(userCompanyId, userRole) {
+        const categories = await this.prisma.menuCategory.findMany({
+            where: userRole === 'super_admin' ? {} : { companyId: userCompanyId },
+            select: { id: true, name: true, companyId: true },
+            orderBy: { displayNumber: 'asc' },
+            take: 5
+        });
+        const templateData = [
+            {
+                'Product ID': '',
+                'Name (English)': 'Margherita Pizza',
+                'Name (Arabic)': 'بيتزا مارغريتا',
+                'Description (English)': 'Classic pizza with tomato sauce, mozzarella cheese, and fresh basil',
+                'Description (Arabic)': 'بيتزا كلاسيكية بصلصة الطماطم والموتزاريلا والريحان الطازج',
+                'Category ID': categories.length > 0 ? categories[0].id : 'REQUIRED_CATEGORY_ID',
+                'Category Name': categories.length > 0 ? categories[0].name?.en || categories[0].name?.ar || 'Pizza' : 'Pizza',
+                'Base Price': 25.00,
+                'Talabat Price': 27.00,
+                'Careem Price': 26.50,
+                'Call Center Price': 25.00,
+                'Website Price': 24.00,
+                'Status': 'Active',
+                'Priority': 1,
+                'Preparation Time': '15-20 minutes',
+                'Tags': 'vegetarian, popular, cheese',
+                'Image URL': 'https://example.com/images/margherita-pizza.jpg',
+                'Company ID': userRole === 'super_admin' ? 'COMPANY_ID_IF_SUPER_ADMIN' : (userCompanyId || 'AUTO_ASSIGNED'),
+                'Company Name': 'Your Restaurant Name',
+                'Created At': '',
+                'Updated At': '',
+            },
+            {
+                'Product ID': '',
+                'Name (English)': 'Chicken Burger',
+                'Name (Arabic)': 'برجر الدجاج',
+                'Description (English)': 'Grilled chicken breast with lettuce, tomato, and mayo',
+                'Description (Arabic)': 'صدر دجاج مشوي مع الخس والطماطم والمايونيز',
+                'Category ID': categories.length > 1 ? categories[1].id : categories.length > 0 ? categories[0].id : 'REQUIRED_CATEGORY_ID',
+                'Category Name': categories.length > 1 ? categories[1].name?.en || categories[1].name?.ar || 'Burgers' : 'Burgers',
+                'Base Price': 18.00,
+                'Talabat Price': 20.00,
+                'Careem Price': 19.50,
+                'Call Center Price': 18.00,
+                'Website Price': 17.00,
+                'Status': 'Active',
+                'Priority': 2,
+                'Preparation Time': '12-15 minutes',
+                'Tags': 'chicken, burger, grilled',
+                'Image URL': 'https://example.com/images/chicken-burger.jpg',
+                'Company ID': userRole === 'super_admin' ? 'COMPANY_ID_IF_SUPER_ADMIN' : (userCompanyId || 'AUTO_ASSIGNED'),
+                'Company Name': 'Your Restaurant Name',
+                'Created At': '',
+                'Updated At': '',
+            },
+            {
+                'Product ID': '',
+                'Name (English)': 'Caesar Salad',
+                'Name (Arabic)': 'سلطة سيزر',
+                'Description (English)': 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
+                'Description (Arabic)': 'خس روماني طازج مع صلصة سيزر والخبز المحمص والبارميزان',
+                'Category ID': categories.length > 2 ? categories[2].id : categories.length > 0 ? categories[0].id : 'REQUIRED_CATEGORY_ID',
+                'Category Name': categories.length > 2 ? categories[2].name?.en || categories[2].name?.ar || 'Salads' : 'Salads',
+                'Base Price': 12.00,
+                'Talabat Price': 14.00,
+                'Careem Price': 13.50,
+                'Call Center Price': 12.00,
+                'Website Price': 11.50,
+                'Status': 'Active',
+                'Priority': 3,
+                'Preparation Time': '5-8 minutes',
+                'Tags': 'healthy, vegetarian, salad',
+                'Image URL': 'https://example.com/images/caesar-salad.jpg',
+                'Company ID': userRole === 'super_admin' ? 'COMPANY_ID_IF_SUPER_ADMIN' : (userCompanyId || 'AUTO_ASSIGNED'),
+                'Company Name': 'Your Restaurant Name',
+                'Created At': '',
+                'Updated At': '',
+            }
+        ];
+        return {
+            data: templateData,
+            filename: `products-import-template-${new Date().toISOString().split('T')[0]}.xlsx`,
+            instructions: {
+                'Required Fields': ['Name (English) OR Name (Arabic)', 'Base Price', 'Category ID OR Category Name'],
+                'Status Options': ['Active', 'Inactive'],
+                'Priority': 'Lower numbers appear first (1 = top priority)',
+                'Tags': 'Separate multiple tags with commas',
+                'Pricing': 'If platform prices are empty, Base Price will be used',
+                'Company ID': userRole === 'super_admin' ? 'Required for super admin users' : 'Auto-assigned to your company',
+                'Product ID': 'Leave empty for new products, provide ID to update existing products',
+                'Categories': categories.map(cat => `${cat.id}: ${cat.name?.en || cat.name?.ar || 'Category'}`),
+                'Image URL': 'Optional - provide direct image URLs',
+                'Date Fields': 'Created At and Updated At are auto-generated, leave empty'
+            }
+        };
+    }
 };
 exports.MenuService = MenuService;
 exports.MenuService = MenuService = __decorate([
@@ -5303,6 +7172,10 @@ let ImageUploadService = class ImageUploadService {
         this.prisma = prisma;
     }
     async uploadProductImage(file, productId) {
+        if (!file || !file.buffer) {
+            throw new Error('Invalid file: no buffer provided');
+        }
+        console.log(`Processing image: ${file.originalname}, size: ${file.size}, mimetype: ${file.mimetype}`);
         if (!(0, fs_1.existsSync)(this.uploadPath)) {
             await (0, promises_1.mkdir)(this.uploadPath, { recursive: true });
         }
@@ -5320,7 +7193,7 @@ let ImageUploadService = class ImageUploadService {
                 width: processedImage.width,
                 height: processedImage.height,
                 mimeType: 'image/webp',
-                productId: productId || null
+                productId: (productId && productId !== 'temp') ? productId : null
             }
         });
         return {
@@ -5337,19 +7210,11 @@ let ImageUploadService = class ImageUploadService {
         let quality = this.quality;
         let processedBuffer;
         let metadata;
-        let image = sharp(buffer)
-            .resize({
-            width: this.maxWidth,
-            height: this.maxHeight,
-            fit: 'inside',
-            withoutEnlargement: true
-        })
-            .webp({ quality });
-        processedBuffer = await image.toBuffer();
-        metadata = await sharp(processedBuffer).metadata();
-        while (processedBuffer.length > this.targetSizeKB * 1024 && quality > 30) {
-            quality -= 10;
-            image = sharp(buffer)
+        if (!buffer || buffer.length === 0) {
+            throw new Error('Invalid image buffer: empty or null buffer');
+        }
+        try {
+            let image = sharp(buffer)
                 .resize({
                 width: this.maxWidth,
                 height: this.maxHeight,
@@ -5359,28 +7224,45 @@ let ImageUploadService = class ImageUploadService {
                 .webp({ quality });
             processedBuffer = await image.toBuffer();
             metadata = await sharp(processedBuffer).metadata();
+            while (processedBuffer.length > this.targetSizeKB * 1024 && quality > 30) {
+                quality -= 10;
+                image = sharp(buffer)
+                    .resize({
+                    width: this.maxWidth,
+                    height: this.maxHeight,
+                    fit: 'inside',
+                    withoutEnlargement: true
+                })
+                    .webp({ quality });
+                processedBuffer = await image.toBuffer();
+                metadata = await sharp(processedBuffer).metadata();
+            }
+            if (processedBuffer.length > this.targetSizeKB * 1024) {
+                const scaleFactor = Math.sqrt((this.targetSizeKB * 1024) / processedBuffer.length);
+                const newWidth = Math.floor((metadata.width || this.maxWidth) * scaleFactor);
+                const newHeight = Math.floor((metadata.height || this.maxHeight) * scaleFactor);
+                image = sharp(buffer)
+                    .resize({
+                    width: newWidth,
+                    height: newHeight,
+                    fit: 'inside',
+                    withoutEnlargement: true
+                })
+                    .webp({ quality: 80 });
+                processedBuffer = await image.toBuffer();
+                metadata = await sharp(processedBuffer).metadata();
+            }
+            return {
+                buffer: processedBuffer,
+                size: processedBuffer.length,
+                width: metadata.width || this.maxWidth,
+                height: metadata.height || this.maxHeight
+            };
         }
-        if (processedBuffer.length > this.targetSizeKB * 1024) {
-            const scaleFactor = Math.sqrt((this.targetSizeKB * 1024) / processedBuffer.length);
-            const newWidth = Math.floor((metadata.width || this.maxWidth) * scaleFactor);
-            const newHeight = Math.floor((metadata.height || this.maxHeight) * scaleFactor);
-            image = sharp(buffer)
-                .resize({
-                width: newWidth,
-                height: newHeight,
-                fit: 'inside',
-                withoutEnlargement: true
-            })
-                .webp({ quality: 80 });
-            processedBuffer = await image.toBuffer();
-            metadata = await sharp(processedBuffer).metadata();
+        catch (error) {
+            console.error('Sharp processing error:', error);
+            throw new Error(`Image processing failed: ${error.message}`);
         }
-        return {
-            buffer: processedBuffer,
-            size: processedBuffer.length,
-            width: metadata.width || this.maxWidth,
-            height: metadata.height || this.maxHeight
-        };
     }
     validateImageFile(file) {
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/bmp', 'image/tiff'];
@@ -5426,6 +7308,29 @@ let ImageUploadService = class ImageUploadService {
             await this.prisma.productImage.delete({
                 where: { id: imageId }
             });
+        }
+    }
+    async updateImageProductId(imageUrls, productId) {
+        const filenames = imageUrls.map(url => url.split('/').pop()).filter(Boolean);
+        await this.prisma.productImage.updateMany({
+            where: {
+                filename: { in: filenames },
+                productId: null
+            },
+            data: {
+                productId
+            }
+        });
+        if (imageUrls.length > 0) {
+            const primaryImage = imageUrls[0];
+            await this.prisma.menuProduct.update({
+                where: { id: productId },
+                data: {
+                    image: primaryImage,
+                    images: imageUrls
+                }
+            });
+            console.log(`Updated product ${productId} with primary image: ${primaryImage}`);
         }
     }
     async bulkUploadAndOptimize(files, productId) {
@@ -7693,6 +9598,16 @@ module.exports = require("date-fns");
 
 /***/ }),
 
+/***/ "express":
+/*!**************************!*\
+  !*** external "express" ***!
+  \**************************/
+/***/ ((module) => {
+
+module.exports = require("express");
+
+/***/ }),
+
 /***/ "express-rate-limit":
 /*!*************************************!*\
   !*** external "express-rate-limit" ***!
@@ -7710,6 +9625,16 @@ module.exports = require("express-rate-limit");
 /***/ ((module) => {
 
 module.exports = require("helmet");
+
+/***/ }),
+
+/***/ "multer":
+/*!*************************!*\
+  !*** external "multer" ***!
+  \*************************/
+/***/ ((module) => {
+
+module.exports = require("multer");
 
 /***/ }),
 
@@ -7803,6 +9728,7 @@ const core_1 = __webpack_require__(/*! @nestjs/core */ "@nestjs/core");
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
 const config_1 = __webpack_require__(/*! @nestjs/config */ "@nestjs/config");
+const path_1 = __webpack_require__(/*! path */ "path");
 const helmet_1 = __webpack_require__(/*! helmet */ "helmet");
 const compression = __webpack_require__(/*! compression */ "compression");
 const express_rate_limit_1 = __webpack_require__(/*! express-rate-limit */ "express-rate-limit");
@@ -7852,6 +9778,9 @@ async function bootstrap() {
             enableImplicitConversion: true,
         },
     }));
+    app.useStaticAssets((0, path_1.join)(__dirname, '..', 'uploads'), {
+        prefix: '/uploads/',
+    });
     app.setGlobalPrefix('api/v1');
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Restaurant Management Platform API')

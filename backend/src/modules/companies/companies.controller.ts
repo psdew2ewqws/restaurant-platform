@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyResponseDto } from './dto';
 
 @ApiTags('Companies')
@@ -42,8 +43,8 @@ export class CompaniesController {
   }
 
   @Get()
-  @Roles('super_admin')
-  @ApiOperation({ summary: 'Get all companies with optional filters' })
+  @Public()
+  @ApiOperation({ summary: 'Get all companies with optional filters (public read access)' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number (1-based)' })
   @ApiQuery({ name: 'limit', required: false, description: 'Number of items per page' })
   @ApiQuery({ name: 'search', required: false, description: 'Search by name or slug' })

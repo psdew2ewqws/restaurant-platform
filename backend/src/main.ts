@@ -2,13 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { join } from 'path';
 import helmet from 'helmet';
 import * as compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
@@ -67,6 +69,11 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Serve static files for uploaded images
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // API prefix for versioning
   app.setGlobalPrefix('api/v1');

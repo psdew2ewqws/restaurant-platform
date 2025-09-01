@@ -13,6 +13,7 @@ import {
 import { MenuProduct } from '../../types/menu';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { getLocalizedText, formatCurrency } from '../../lib/menu-utils';
+import { getImageUrl, getPlaceholderUrl } from '../../utils/imageUrl';
 import Image from 'next/image';
 
 interface ProductViewModalProps {
@@ -72,7 +73,7 @@ export const ProductViewModal: React.FC<ProductViewModalProps> = ({
                   {product.image ? (
                     <div className="relative w-48 h-32 bg-gray-100 rounded-lg overflow-hidden">
                       <Image
-                        src={product.image}
+                        src={getImageUrl(product.image)}
                         alt={productName}
                         fill
                         className="object-cover"

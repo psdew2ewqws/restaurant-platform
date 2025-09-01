@@ -461,4 +461,387 @@ export class MenuService {
       where: { id }
     });
   }
+
+  // Get modifier categories for a specific product
+  async getProductModifiers(productId: string, userCompanyId?: string) {
+    // First verify the product exists and user has access
+    const product = await this.prisma.menuProduct.findFirst({
+      where: {
+        id: productId,
+        ...(userCompanyId && { companyId: userCompanyId }),
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Get modifier categories associated with this product
+    const productModifiers = await this.prisma.productModifierCategory.findMany({
+      where: { productId },
+      include: {
+        modifierCategory: {
+          include: {
+            modifiers: {
+              where: { status: 1 }, // Only active modifiers
+              orderBy: { displayNumber: 'asc' },
+            },
+          },
+        },
+      },
+      orderBy: { displayOrder: 'asc' },
+    });
+
+    return {
+      categories: productModifiers.map(pm => ({
+        ...pm.modifierCategory,
+        modifiers: pm.modifierCategory.modifiers.map(modifier => ({
+          ...modifier,
+          basePrice: Number(modifier.basePrice),
+          priority: modifier.displayNumber,
+        })),
+        priority: pm.displayOrder,
+        isRequired: pm.isRequired,
+        minSelections: pm.minQuantity,
+        maxSelections: pm.maxQuantity,
+      })),
+    };
+  }
+
+  // Save modifier categories for a specific product
+  async saveProductModifiers(productId: string, modifierCategoryIds: string[], userCompanyId?: string) {
+    // Verify the product exists and user has access
+    const product = await this.prisma.menuProduct.findFirst({
+      where: {
+        id: productId,
+        ...(userCompanyId && { companyId: userCompanyId }),
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Remove existing associations
+    await this.prisma.productModifierCategory.deleteMany({
+      where: { productId },
+    });
+
+    // Create new associations
+    if (modifierCategoryIds && modifierCategoryIds.length > 0) {
+      const associations = modifierCategoryIds.map((categoryId, index) => ({
+        productId,
+        modifierCategoryId: categoryId,
+        displayOrder: index + 1,
+        isRequired: false,
+        minQuantity: 0,
+        maxQuantity: 1,
+      }));
+
+      await this.prisma.productModifierCategory.createMany({
+        data: associations,
+      });
+    }
+
+    return { message: 'Product modifiers saved successfully' };
+  }
+
+  // Export products to Excel format
+  async exportProducts(userCompanyId?: string, userRole?: string) {
+    // Super admin can export all products, regular users only their company's
+    const where = userRole === 'super_admin' ? {} : { companyId: userCompanyId };
+
+    const products = await this.prisma.menuProduct.findMany({
+      where,
+      include: {
+        category: {
+          select: { id: true, name: true }
+        },
+        company: {
+          select: { id: true, name: true, slug: true }
+        }
+      },
+      orderBy: [
+        { priority: 'asc' },
+        { createdAt: 'desc' }
+      ]
+    });
+
+    // Transform data for export
+    const exportData = products.map(product => {
+      const name = product.name as any;
+      const description = product.description as any;
+      const categoryName = product.category?.name as any;
+      const pricing = product.pricing as any;
+      
+      return {
+        'Product ID': product.id,
+        'Name (English)': name?.en || '',
+        'Name (Arabic)': name?.ar || '',
+        'Description (English)': description?.en || '',
+        'Description (Arabic)': description?.ar || '',
+        'Category ID': product.categoryId,
+        'Category Name': categoryName?.en || categoryName?.ar || '',
+        'Base Price': product.basePrice,
+        'Talabat Price': pricing?.talabat || product.basePrice,
+        'Careem Price': pricing?.careem || product.basePrice,
+        'Call Center Price': pricing?.callCenter || product.basePrice,
+        'Website Price': pricing?.website || product.basePrice,
+        'Status': product.status === 1 ? 'Active' : 'Inactive',
+        'Priority': product.priority,
+        'Preparation Time': product.preparationTime || '',
+        'Tags': Array.isArray(product.tags) ? product.tags.join(', ') : '',
+        'Image URL': product.image || '',
+        'Company ID': product.companyId,
+        'Company Name': product.company?.name || '',
+        'Created At': product.createdAt.toISOString(),
+        'Updated At': product.updatedAt.toISOString()
+      };
+    });
+
+    return {
+      data: exportData,
+      filename: `products-export-${new Date().toISOString().split('T')[0]}.xlsx`,
+      totalCount: exportData.length
+    };
+  }
+
+  // Import products from Excel data
+  async importProducts(importData: any[], userCompanyId?: string, userRole?: string) {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as string[]
+    };
+
+    // Validate required company for non-super-admin users
+    if (userRole !== 'super_admin' && !userCompanyId) {
+      throw new ForbiddenException('Company ID is required');
+    }
+
+    // Get all categories for validation
+    const categories = await this.prisma.menuCategory.findMany({
+      where: userRole === 'super_admin' ? {} : { companyId: userCompanyId },
+      select: { id: true, name: true, companyId: true }
+    });
+
+    for (let i = 0; i < importData.length; i++) {
+      const row = importData[i];
+      const rowNumber = i + 2; // Excel rows start from 2 (after header)
+
+      try {
+        // Validate required fields
+        if (!row['Name (English)'] && !row['Name (Arabic)']) {
+          results.errors.push(`Row ${rowNumber}: Name is required in at least one language`);
+          results.failed++;
+          continue;
+        }
+
+        if (!row['Base Price'] || isNaN(parseFloat(row['Base Price']))) {
+          results.errors.push(`Row ${rowNumber}: Valid base price is required`);
+          results.failed++;
+          continue;
+        }
+
+        // Determine effective company ID
+        let effectiveCompanyId = userCompanyId;
+        if (userRole === 'super_admin') {
+          effectiveCompanyId = row['Company ID'] || userCompanyId;
+        }
+
+        if (!effectiveCompanyId) {
+          results.errors.push(`Row ${rowNumber}: Company ID is required`);
+          results.failed++;
+          continue;
+        }
+
+        // Validate category
+        let categoryId = row['Category ID'];
+        if (!categoryId) {
+          // Try to find category by name
+          const categoryName = row['Category Name'];
+          if (categoryName) {
+            const category = categories.find(c => {
+              const name = c.name as any;
+              return c.companyId === effectiveCompanyId && 
+                (name?.en === categoryName || name?.ar === categoryName);
+            });
+            categoryId = category?.id;
+          }
+        }
+
+        if (!categoryId) {
+          results.errors.push(`Row ${rowNumber}: Valid category is required`);
+          results.failed++;
+          continue;
+        }
+
+        // Validate category belongs to company
+        const validCategory = categories.find(c => c.id === categoryId && c.companyId === effectiveCompanyId);
+        if (!validCategory) {
+          results.errors.push(`Row ${rowNumber}: Category does not belong to the specified company`);
+          results.failed++;
+          continue;
+        }
+
+        // Prepare product data
+        const productData = {
+          name: {
+            ...(row['Name (English)'] && { en: row['Name (English)'] }),
+            ...(row['Name (Arabic)'] && { ar: row['Name (Arabic)'] })
+          },
+          description: {
+            ...(row['Description (English)'] && { en: row['Description (English)'] }),
+            ...(row['Description (Arabic)'] && { ar: row['Description (Arabic)'] })
+          },
+          categoryId,
+          companyId: effectiveCompanyId,
+          basePrice: parseFloat(row['Base Price']),
+          pricing: {
+            talabat: parseFloat(row['Talabat Price']) || parseFloat(row['Base Price']),
+            careem: parseFloat(row['Careem Price']) || parseFloat(row['Base Price']),
+            callCenter: parseFloat(row['Call Center Price']) || parseFloat(row['Base Price']),
+            website: parseFloat(row['Website Price']) || parseFloat(row['Base Price'])
+          },
+          status: row['Status'] === 'Active' ? 1 : 0,
+          priority: parseInt(row['Priority']) || 999,
+          preparationTime: row['Preparation Time'] || null,
+          tags: row['Tags'] ? row['Tags'].split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag) : [],
+          image: row['Image URL'] || null,
+          images: row['Image URL'] ? [row['Image URL']] : []
+        };
+
+        // Check if product already exists (by name and company)
+        const existingProduct = await this.prisma.menuProduct.findFirst({
+          where: {
+            companyId: effectiveCompanyId,
+            OR: [
+              { name: { path: ['en'], equals: productData.name.en } },
+              { name: { path: ['ar'], equals: productData.name.ar } }
+            ]
+          }
+        });
+
+        if (existingProduct) {
+          // Update existing product
+          await this.prisma.menuProduct.update({
+            where: { id: existingProduct.id },
+            data: productData as any
+          });
+        } else {
+          // Create new product
+          await this.prisma.menuProduct.create({
+            data: productData as any
+          });
+        }
+
+        results.success++;
+      } catch (error) {
+        results.errors.push(`Row ${rowNumber}: ${error.message}`);
+        results.failed++;
+      }
+    }
+
+    return results;
+  }
+
+  // Generate import template with example data
+  async generateImportTemplate(userCompanyId?: string, userRole?: string) {
+    // Get categories for the template
+    const categories = await this.prisma.menuCategory.findMany({
+      where: userRole === 'super_admin' ? {} : { companyId: userCompanyId },
+      select: { id: true, name: true, companyId: true },
+      orderBy: { displayNumber: 'asc' },
+      take: 5 // Just get a few categories for the template
+    });
+
+    const templateData = [
+      {
+        'Product ID': '', // Leave empty for new products
+        'Name (English)': 'Margherita Pizza',
+        'Name (Arabic)': 'بيتزا مارغريتا',
+        'Description (English)': 'Classic pizza with tomato sauce, mozzarella cheese, and fresh basil',
+        'Description (Arabic)': 'بيتزا كلاسيكية بصلصة الطماطم والموتزاريلا والريحان الطازج',
+        'Category ID': categories.length > 0 ? categories[0].id : 'REQUIRED_CATEGORY_ID',
+        'Category Name': categories.length > 0 ? (categories[0].name as any)?.en || (categories[0].name as any)?.ar || 'Pizza' : 'Pizza',
+        'Base Price': 25.00,
+        'Talabat Price': 27.00,
+        'Careem Price': 26.50,
+        'Call Center Price': 25.00,
+        'Website Price': 24.00,
+        'Status': 'Active',
+        'Priority': 1,
+        'Preparation Time': '15-20 minutes',
+        'Tags': 'vegetarian, popular, cheese',
+        'Image URL': 'https://example.com/images/margherita-pizza.jpg',
+        'Company ID': userRole === 'super_admin' ? 'COMPANY_ID_IF_SUPER_ADMIN' : (userCompanyId || 'AUTO_ASSIGNED'),
+        'Company Name': 'Your Restaurant Name',
+        'Created At': '', // Auto-generated
+        'Updated At': '', // Auto-generated
+      },
+      {
+        'Product ID': '', 
+        'Name (English)': 'Chicken Burger',
+        'Name (Arabic)': 'برجر الدجاج',
+        'Description (English)': 'Grilled chicken breast with lettuce, tomato, and mayo',
+        'Description (Arabic)': 'صدر دجاج مشوي مع الخس والطماطم والمايونيز',
+        'Category ID': categories.length > 1 ? categories[1].id : categories.length > 0 ? categories[0].id : 'REQUIRED_CATEGORY_ID',
+        'Category Name': categories.length > 1 ? (categories[1].name as any)?.en || (categories[1].name as any)?.ar || 'Burgers' : 'Burgers',
+        'Base Price': 18.00,
+        'Talabat Price': 20.00,
+        'Careem Price': 19.50,
+        'Call Center Price': 18.00,
+        'Website Price': 17.00,
+        'Status': 'Active',
+        'Priority': 2,
+        'Preparation Time': '12-15 minutes',
+        'Tags': 'chicken, burger, grilled',
+        'Image URL': 'https://example.com/images/chicken-burger.jpg',
+        'Company ID': userRole === 'super_admin' ? 'COMPANY_ID_IF_SUPER_ADMIN' : (userCompanyId || 'AUTO_ASSIGNED'),
+        'Company Name': 'Your Restaurant Name',
+        'Created At': '',
+        'Updated At': '',
+      },
+      {
+        'Product ID': '', 
+        'Name (English)': 'Caesar Salad',
+        'Name (Arabic)': 'سلطة سيزر',
+        'Description (English)': 'Fresh romaine lettuce with Caesar dressing, croutons, and parmesan',
+        'Description (Arabic)': 'خس روماني طازج مع صلصة سيزر والخبز المحمص والبارميزان',
+        'Category ID': categories.length > 2 ? categories[2].id : categories.length > 0 ? categories[0].id : 'REQUIRED_CATEGORY_ID',
+        'Category Name': categories.length > 2 ? (categories[2].name as any)?.en || (categories[2].name as any)?.ar || 'Salads' : 'Salads',
+        'Base Price': 12.00,
+        'Talabat Price': 14.00,
+        'Careem Price': 13.50,
+        'Call Center Price': 12.00,
+        'Website Price': 11.50,
+        'Status': 'Active',
+        'Priority': 3,
+        'Preparation Time': '5-8 minutes',
+        'Tags': 'healthy, vegetarian, salad',
+        'Image URL': 'https://example.com/images/caesar-salad.jpg',
+        'Company ID': userRole === 'super_admin' ? 'COMPANY_ID_IF_SUPER_ADMIN' : (userCompanyId || 'AUTO_ASSIGNED'),
+        'Company Name': 'Your Restaurant Name',
+        'Created At': '',
+        'Updated At': '',
+      }
+    ];
+
+    return {
+      data: templateData,
+      filename: `products-import-template-${new Date().toISOString().split('T')[0]}.xlsx`,
+      instructions: {
+        'Required Fields': ['Name (English) OR Name (Arabic)', 'Base Price', 'Category ID OR Category Name'],
+        'Status Options': ['Active', 'Inactive'],
+        'Priority': 'Lower numbers appear first (1 = top priority)',
+        'Tags': 'Separate multiple tags with commas',
+        'Pricing': 'If platform prices are empty, Base Price will be used',
+        'Company ID': userRole === 'super_admin' ? 'Required for super admin users' : 'Auto-assigned to your company',
+        'Product ID': 'Leave empty for new products, provide ID to update existing products',
+        'Categories': categories.map(cat => `${cat.id}: ${(cat.name as any)?.en || (cat.name as any)?.ar || 'Category'}`),
+        'Image URL': 'Optional - provide direct image URLs',
+        'Date Fields': 'Created At and Updated At are auto-generated, leave empty'
+      }
+    };
+  }
 }

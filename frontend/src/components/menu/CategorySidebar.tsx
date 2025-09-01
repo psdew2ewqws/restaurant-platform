@@ -360,9 +360,9 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
             ) : (
               // Display Mode
               <div className="flex items-center justify-between p-3">
-                <button
+                <div
                   onClick={() => onCategorySelect(category.id)}
-                  className="flex-1 text-left min-w-0"
+                  className="flex-1 text-left min-w-0 cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
@@ -409,7 +409,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                       )}
                     </div>
                   </div>
-                </button>
+                </div>
                 
                 {canEdit && (
                   <div className="flex items-center space-x-1 ml-2">

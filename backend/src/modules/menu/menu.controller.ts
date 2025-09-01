@@ -13,9 +13,12 @@ import {
   HttpCode,
   UseInterceptors,
   UploadedFiles,
-  BadRequestException
+  UploadedFile,
+  BadRequestException,
+  Res
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { MenuService } from './menu.service';
 import { ImageUploadService } from './services/image-upload.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -78,6 +81,17 @@ export class MenuController {
   async createProduct(@Body() createProductDto: CreateProductDto, @Request() req) {
     const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
     return this.menuService.createProduct(createProductDto, userCompanyId);
+  }
+
+  // Download import template
+  @Get('products/import-template')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async downloadImportTemplate(@Request() req, @Res() res: Response) {
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    const templateResult = await this.menuService.generateImportTemplate(userCompanyId, req.user.role);
+    
+    // Return JSON data for frontend to handle Excel generation
+    res.json(templateResult);
   }
 
   // Get single product
@@ -193,10 +207,70 @@ export class MenuController {
     return { message: 'Image deleted successfully' };
   }
 
+  // Update images with productId after product creation
+  @Post('images/update-product')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async updateImageProductId(@Body() body: { imageUrls: string[]; productId: string }) {
+    await this.imageUploadService.updateImageProductId(body.imageUrls, body.productId);
+    return { message: 'Images updated successfully' };
+  }
+
   // Get upload configuration
   @Get('upload-config')
   @Roles('super_admin', 'company_owner', 'branch_manager', 'call_center')
   getUploadConfig() {
     return this.imageUploadService.getUploadConfig();
   }
+
+  // Get modifier categories for a specific product
+  @Get('products/:id/modifiers')
+  @Roles('super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier')
+  async getProductModifiers(@Param('id') productId: string, @Request() req) {
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    return this.menuService.getProductModifiers(productId, userCompanyId);
+  }
+
+  // Save modifier categories for a specific product
+  @Post('products/:id/modifiers')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async saveProductModifiers(
+    @Param('id') productId: string,
+    @Body() modifierCategoryIds: string[],
+    @Request() req
+  ) {
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    return this.menuService.saveProductModifiers(productId, modifierCategoryIds, userCompanyId);
+  }
+
+  // Export products to Excel
+  @Get('products/export')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async exportProducts(@Request() req, @Res() res: Response) {
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    const exportResult = await this.menuService.exportProducts(userCompanyId, req.user.role);
+    
+    // Return JSON data for frontend to handle Excel generation
+    res.json(exportResult);
+  }
+
+  // Import products from Excel
+  @Post('products/import')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  async importProducts(
+    @Body() importData: { data: any[] },
+    @Request() req
+  ) {
+    if (!importData.data || !Array.isArray(importData.data)) {
+      throw new BadRequestException('Import data array is required');
+    }
+
+    if (importData.data.length === 0) {
+      throw new BadRequestException('Import data cannot be empty');
+    }
+
+    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
+    
+    return this.menuService.importProducts(importData.data, userCompanyId, req.user.role);
+  }
+
 }

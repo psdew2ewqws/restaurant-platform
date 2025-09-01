@@ -10,7 +10,10 @@ import { DatabaseModule } from '../database/database.module';
   imports: [
     DatabaseModule,
     MulterModule.register({
-      dest: './uploads/temp',
+      storage: require('multer').memoryStorage(), // Use memory storage to keep files in buffer
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB limit
+      },
     })
   ],
   controllers: [MenuController],

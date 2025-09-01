@@ -12,7 +12,54 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async login(emailOrUsername: string, password: string) {
+  private async logActivity(
+    userId: string,
+    action: string,
+    resourceType?: string,
+    resourceId?: string,
+    description?: string,
+    ipAddress?: string,
+    userAgent?: string,
+    success: boolean = true,
+    errorMessage?: string
+  ) {
+    try {
+      await this.prisma.userActivityLog.create({
+        data: {
+          userId,
+          action,
+          resourceType,
+          resourceId,
+          description,
+          ipAddress,
+          userAgent,
+          success,
+          errorMessage,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+    }
+  }
+
+  private getDeviceType(userAgent?: string): string {
+    if (!userAgent) return 'unknown';
+    
+    const ua = userAgent.toLowerCase();
+    
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+      return 'mobile';
+    } else if (ua.includes('tablet') || ua.includes('ipad')) {
+      return 'tablet';
+    } else {
+      return 'desktop';
+    }
+  }
+
+  async login(emailOrUsername: string, password: string, req?: any) {
+    const ipAddress = req?.ip || req?.connection?.remoteAddress;
+    const userAgent = req?.get('User-Agent');
+
     // Try to find user by email first, then by username
     let user = await this.prisma.user.findUnique({
       where: { email: emailOrUsername },
@@ -34,6 +81,10 @@ export class AuthService {
     }
 
     if (!user || user.status !== 'active') {
+      // Log failed login attempt
+      if (user) {
+        await this.logActivity(user.id, 'login_failed', null, null, 'Failed login attempt - inactive account', ipAddress, userAgent, false);
+      }
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -41,13 +92,19 @@ export class AuthService {
     const isPasswordValid = password === 'test123' || await bcrypt.compare(password, user.passwordHash);
     
     if (!isPasswordValid) {
+      // Log failed login attempt
+      await this.logActivity(user.id, 'login_failed', null, null, 'Failed login attempt - invalid password', ipAddress, userAgent, false);
       throw new UnauthorizedException('Invalid credentials');
     }
 
     // Update last login
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { 
+        lastLoginAt: new Date(),
+        lastLoginIp: ipAddress,
+        failedLoginAttempts: 0
+      },
     });
 
     const payload = {
@@ -58,8 +115,26 @@ export class AuthService {
       branchId: user.branchId,
     };
 
+    const accessToken = this.jwtService.sign(payload);
+    const tokenHash = await bcrypt.hash(accessToken, 10);
+
+    // Create user session
+    const session = await this.prisma.userSession.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        ipAddress,
+        userAgent,
+        deviceType: this.getDeviceType(userAgent),
+      },
+    });
+
+    // Log successful login
+    await this.logActivity(user.id, 'login_success', null, null, 'User logged in successfully', ipAddress, userAgent, true);
+
     return {
-      accessToken: this.jwtService.sign(payload),
+      accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -158,5 +233,60 @@ export class AuthService {
     return {
       accessToken: this.jwtService.sign(payload),
     };
+  }
+
+  async logout(userId: string, tokenHash: string, req?: any) {
+    const ipAddress = req?.ip || req?.connection?.remoteAddress;
+    const userAgent = req?.get('User-Agent');
+
+    // Revoke the session
+    await this.prisma.userSession.updateMany({
+      where: {
+        userId,
+        tokenHash,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+        revokedAt: new Date(),
+      },
+    });
+
+    // Log logout activity
+    await this.logActivity(userId, 'logout', null, null, 'User logged out', ipAddress, userAgent, true);
+
+    return { message: 'Logged out successfully' };
+  }
+
+  async getUserSessions(userId: string) {
+    return this.prisma.userSession.findMany({
+      where: { userId, isActive: true },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+  }
+
+  async getUserActivities(userId: string, limit: number = 50) {
+    return this.prisma.userActivityLog.findMany({
+      where: { userId },
+      orderBy: { timestamp: 'desc' },
+      take: limit,
+    });
+  }
+
+  async revokeAllSessions(userId: string, req?: any) {
+    const ipAddress = req?.ip || req?.connection?.remoteAddress;
+    const userAgent = req?.get('User-Agent');
+
+    await this.prisma.userSession.updateMany({
+      where: { userId, isActive: true },
+      data: {
+        isActive: false,
+        revokedAt: new Date(),
+      },
+    });
+
+    await this.logActivity(userId, 'revoke_all_sessions', null, null, 'All sessions revoked', ipAddress, userAgent, true);
+
+    return { message: 'All sessions revoked successfully' };
   }
 }

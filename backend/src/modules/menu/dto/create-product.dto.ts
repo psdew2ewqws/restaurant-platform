@@ -10,8 +10,41 @@ export class LocalizedTextDto {
   @IsString()
   ar?: string;
 
-  // Support for additional languages
-  [key: string]: any;
+  // Support for additional languages - properly typed
+  @IsOptional()
+  @IsString()
+  tr?: string;
+
+  @IsOptional()
+  @IsString()
+  fa?: string;
+
+  @IsOptional()
+  @IsString()
+  ur?: string;
+
+  @IsOptional()
+  @IsString()
+  ku?: string;
+
+  @IsOptional()
+  @IsString()
+  fr?: string;
+
+  @IsOptional()
+  @IsString()
+  de?: string;
+
+  @IsOptional()
+  @IsString()
+  es?: string;
+
+  @IsOptional()
+  @IsString()
+  ru?: string;
+
+  // Catch-all for any additional languages
+  [key: string]: string | undefined;
 }
 
 export class PricingChannelDto {

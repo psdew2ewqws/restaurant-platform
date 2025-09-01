@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 import { 
   PlusIcon,
   DocumentArrowDownIcon,
@@ -265,14 +266,165 @@ export default function MenuProductsPage() {
   }, [refreshAllData]);
 
   // Export functionality
-  const handleExport = useCallback(() => {
-    toast.success('Export functionality would be implemented here');
+  const handleExport = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/export`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export products');
+      }
+      
+      const exportResult = await response.json();
+      
+      // Convert data to Excel and download
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportResult.data);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+      
+      // Download file
+      const filename = exportResult.filename || 'products-export.xlsx';
+      XLSX.writeFile(workbook, filename);
+      
+      toast.success(`Exported ${exportResult.totalCount} products successfully`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export products');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Download import template
+  const handleDownloadTemplate = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/import-template`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download template');
+      }
+      
+      const templateResult = await response.json();
+      
+      // Convert data to Excel and download
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(templateResult.data);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Products Template');
+      
+      // Add instructions sheet
+      if (templateResult.instructions) {
+        const instructionsData = Object.entries(templateResult.instructions).map(([key, value]) => ({
+          'Field': key,
+          'Instructions': Array.isArray(value) ? value.join(', ') : value
+        }));
+        const instructionsSheet = XLSX.utils.json_to_sheet(instructionsData);
+        XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instructions');
+      }
+      
+      // Download file
+      const filename = templateResult.filename || 'products-import-template.xlsx';
+      XLSX.writeFile(workbook, filename);
+      
+      toast.success('Import template downloaded successfully');
+    } catch (error) {
+      console.error('Template download error:', error);
+      toast.error('Failed to download template');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Import functionality
   const handleImport = useCallback(() => {
-    toast.success('Import functionality would be implemented here');
-  }, []);
+    // Create file input element
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.xlsx,.xls';
+    fileInput.multiple = false;
+    
+    fileInput.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      try {
+        setLoading(true);
+        
+        // Read and parse Excel file
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        
+        // Get first worksheet
+        const worksheetName = workbook.SheetNames[0];
+        if (!worksheetName) {
+          throw new Error('No worksheet found in Excel file');
+        }
+        
+        const worksheet = workbook.Sheets[worksheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        
+        if (jsonData.length === 0) {
+          throw new Error('No data found in Excel file');
+        }
+        
+        // Send to backend for processing
+        const importResult = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/import`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          },
+          body: JSON.stringify({ data: jsonData })
+        });
+        
+        if (!importResult.ok) {
+          const errorData = await importResult.json();
+          throw new Error(errorData.message || 'Failed to import products');
+        }
+        
+        const result = await importResult.json();
+        
+        // Show results
+        if (result.success > 0) {
+          toast.success(`Successfully imported ${result.success} products`);
+          refreshAllData(); // Refresh the product list
+        }
+        
+        if (result.failed > 0) {
+          toast.error(`Failed to import ${result.failed} products`);
+          if (result.errors && result.errors.length > 0) {
+            console.error('Import errors:', result.errors);
+            // Show first few errors to user
+            const errorPreview = result.errors.slice(0, 3).join('\n');
+            toast.error(`Import errors:\n${errorPreview}${result.errors.length > 3 ? '\n... and more' : ''}`);
+          }
+        }
+        
+        if (result.success === 0 && result.failed === 0) {
+          toast('No products were imported');
+        }
+        
+      } catch (error) {
+        console.error('Import error:', error);
+        toast.error(error.message || 'Failed to import products');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // Trigger file selection
+    fileInput.click();
+  }, [refreshAllData]);
 
   const selectionStats = useMemo(() => ({
     totalSelected: selectedProducts.length,
@@ -357,8 +509,17 @@ export default function MenuProductsPage() {
               {/* Import/Export */}
               <div className="flex border border-gray-200 rounded-md bg-white">
                 <button
+                  onClick={handleDownloadTemplate}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors border-r border-gray-200"
+                  title="Download Excel template for importing products"
+                >
+                  <DocumentArrowDownIcon className="w-4 h-4 mr-1.5" />
+                  Template
+                </button>
+                <button
                   onClick={handleImport}
                   className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-200"
+                  title="Upload Excel file to import products"
                 >
                   <DocumentArrowUpIcon className="w-4 h-4 mr-1.5" />
                   Import
@@ -366,6 +527,7 @@ export default function MenuProductsPage() {
                 <button
                   onClick={handleExport}
                   className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  title="Export all products to Excel"
                 >
                   <DocumentArrowDownIcon className="w-4 h-4 mr-1.5" />
                   Export

@@ -69,8 +69,8 @@ export class AuthController {
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto.emailOrUsername, loginDto.password);
+  async login(@Body() loginDto: LoginDto, @Req() req: any) {
+    return this.authService.login(loginDto.emailOrUsername, loginDto.password, req);
   }
 
   @Public()
@@ -109,11 +109,36 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'User logout' })
   @ApiResponse({ status: 200, description: 'Logout successful' })
-  async logout() {
-    // For JWT, logout is typically handled client-side by removing the token
-    // Server-side logout would require token blacklisting (Redis implementation)
-    return {
-      message: 'Logged out successfully',
-    };
+  async logout(@Req() req: any) {
+    const tokenHash = await require('bcryptjs').hash(req.headers.authorization?.replace('Bearer ', ''), 10);
+    return this.authService.logout(req.user.id, tokenHash, req);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user active sessions' })
+  @ApiResponse({ status: 200, description: 'Sessions retrieved successfully' })
+  async getSessions(@Req() req: any) {
+    return this.authService.getUserSessions(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('activities')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user activity logs' })
+  @ApiResponse({ status: 200, description: 'Activities retrieved successfully' })
+  async getActivities(@Req() req: any) {
+    return this.authService.getUserActivities(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('revoke-all-sessions')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke all user sessions' })
+  @ApiResponse({ status: 200, description: 'All sessions revoked successfully' })
+  async revokeAllSessions(@Req() req: any) {
+    return this.authService.revokeAllSessions(req.user.id, req);
   }
 }

@@ -419,6 +419,22 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
       if (response.ok) {
         const result = await response.json();
+        
+        // Update images with the new productId if any were uploaded
+        if (imageUrls.length > 0 && result.id) {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/images/update-product`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+            },
+            body: JSON.stringify({
+              imageUrls,
+              productId: result.id
+            })
+          });
+        }
+        
         toast.success('Product created successfully!');
         
         // Reset form
@@ -485,6 +501,31 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     // First, save the basic product
     try {
       setLoading(true);
+      
+      // Upload images first if any
+      let imageUrls: string[] = [];
+      if (productImages.files.length > 0) {
+        const formData = new FormData();
+        productImages.files.forEach(file => {
+          formData.append('images', file);
+        });
+        
+        const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/upload-images`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          },
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload images');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        imageUrls = uploadResult.map((img: any) => img.url);
+      }
+      
       const productData = {
         name: Object.fromEntries(nameFields.map(field => [field.code, field.value])),
         description: Object.fromEntries(descriptionFields.map(field => [field.code, field.value])),
@@ -494,7 +535,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         tags,
         status,
         companyId: user?.role === 'super_admin' ? companyId : user?.companyId,
-        images: productImages.files,
+        images: imageUrls,
         pricing: {
           ...Object.fromEntries(
             pricingChannels.filter(channel => channel.enabled).map(channel => [channel.id, channel.price])
@@ -519,7 +560,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
       const savedProduct = await response.json();
       setCurrentStep(2);
-      setTempProductId(savedProduct.data.id); // Store the product ID for add-ons
+      setTempProductId(savedProduct.id); // Store the product ID for add-ons
       toast.success('Product created! Now configure add-ons.');
     } catch (error: any) {
       console.error('Error creating product:', error);
