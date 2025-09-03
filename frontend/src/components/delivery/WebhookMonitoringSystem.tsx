@@ -95,7 +95,7 @@ export default function WebhookMonitoringSystem() {
     if (!autoRefresh) setIsLoading(true);
     
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
       // Build query parameters
       const params = new URLSearchParams({

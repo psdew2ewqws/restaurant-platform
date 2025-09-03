@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GetServerSideProps } from 'next';
-import { useSession } from 'next-auth/react';
-import Layout from '../../src/components/Layout';
+import { useAuth } from '../../src/contexts/AuthContext';
+import ProtectedRoute from '../../src/components/ProtectedRoute';
 import { 
   CheckCircleIcon, 
   XCircleIcon, 
@@ -50,7 +50,7 @@ interface SystemHealth {
 }
 
 const DeliveryProvidersPage: React.FC = () => {
-  const { data: session } = useSession();
+  const { user } = useAuth();
   const [providers, setProviders] = useState<DeliveryProvider[]>([]);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,16 +143,16 @@ const DeliveryProvidersPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <ProtectedRoute>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </ProtectedRoute>
     );
   }
 
   return (
-    <Layout>
+    <ProtectedRoute>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -349,7 +349,7 @@ const DeliveryProvidersPage: React.FC = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </ProtectedRoute>
   );
 };
 

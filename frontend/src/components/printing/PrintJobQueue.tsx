@@ -100,7 +100,7 @@ export default function PrintJobQueue({
       queryParams.append('limit', '100');
       queryParams.append('includeCompleted', 'true');
       
-      const url = `http://localhost:3001/api/v1/printing/jobs?${queryParams.toString()}`;
+      const url = `http://localhost:3002/api/v1/printing/jobs?${queryParams.toString()}`;
       const response = await apiCall(url, { method: 'GET' });
 
       if (response && Array.isArray(response)) {
@@ -186,7 +186,7 @@ export default function PrintJobQueue({
   // Job actions
   const retryJob = async (jobId: string) => {
     try {
-      const url = `http://localhost:3001/api/v1/printing/jobs/${jobId}/retry`;
+      const url = `http://localhost:3002/api/v1/printing/jobs/${jobId}/retry`;
       await apiCall(url, { method: 'POST' });
       await fetchJobs();
     } catch (err: any) {
@@ -197,7 +197,7 @@ export default function PrintJobQueue({
   const cancelJob = async (jobId: string) => {
     try {
       // Note: Backend doesn't have cancel endpoint, using retry for now
-      const url = `http://localhost:3001/api/v1/printing/jobs/${jobId}/retry`;
+      const url = `http://localhost:3002/api/v1/printing/jobs/${jobId}/retry`;
       await apiCall(url, { method: 'POST' });
       await fetchJobs();
     } catch (err: any) {
@@ -208,7 +208,7 @@ export default function PrintJobQueue({
   const pauseJob = async (jobId: string) => {
     try {
       // Note: Backend doesn't have pause endpoint, using retry for now
-      const url = `http://localhost:3001/api/v1/printing/jobs/${jobId}/retry`;
+      const url = `http://localhost:3002/api/v1/printing/jobs/${jobId}/retry`;
       await apiCall(url, { method: 'POST' });
       await fetchJobs();
     } catch (err: any) {
@@ -219,7 +219,7 @@ export default function PrintJobQueue({
   const resumeJob = async (jobId: string) => {
     try {
       // Note: Backend doesn't have resume endpoint, using retry for now
-      const url = `http://localhost:3001/api/v1/printing/jobs/${jobId}/retry`;
+      const url = `http://localhost:3002/api/v1/printing/jobs/${jobId}/retry`;
       await apiCall(url, { method: 'POST' });
       await fetchJobs();
     } catch (err: any) {

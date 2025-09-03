@@ -56,7 +56,7 @@ export const LicenseProvider: React.FC<LicenseProviderProps> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true)
   const { user, token, isAuthenticated } = useAuth()
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'
 
   const fetchLicense = useCallback(async () => {
     if (!isAuthenticated || !token || !user?.companyId) {

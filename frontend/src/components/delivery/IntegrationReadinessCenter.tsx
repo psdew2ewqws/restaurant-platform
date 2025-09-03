@@ -111,7 +111,7 @@ export default function IntegrationReadinessCenter() {
   };
 
   const runComprehensiveHealthCheck = async () => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
     try {
       // Use safe fetch with fallbacks for all endpoints
@@ -158,7 +158,7 @@ export default function IntegrationReadinessCenter() {
   };
 
   const runSystemTests = async (): Promise<IntegrationTest[]> => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
     const tests: IntegrationTest[] = [];
 
     // Database connectivity test
@@ -236,7 +236,7 @@ export default function IntegrationReadinessCenter() {
   };
 
   const runProviderTests = async (config: any): Promise<IntegrationTest[]> => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
     const tests: IntegrationTest[] = [];
 
     // Connection test

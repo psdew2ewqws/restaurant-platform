@@ -372,7 +372,7 @@ export async function testProviderConnection(
   configuration: ProviderConfiguration
 ): Promise<{ success: boolean; message: string; details?: any }> {
   // This would integrate with your backend API to test actual connections
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
   
   try {
     const token = localStorage.getItem('token');

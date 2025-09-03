@@ -126,7 +126,7 @@ export default function FailoverManagementSystem() {
     if (!autoMonitoring) setIsLoading(true);
 
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
       // Load all failover-related data with safe fetch and fallbacks
       const [rules, eventsData, healthData, analyticsData] = await Promise.all([
@@ -219,7 +219,7 @@ export default function FailoverManagementSystem() {
 
   const executeManualFailover = async (orderId: string, newProviderId: string, reason: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
       const token = localStorage.getItem('token');
 
       const response = await fetch(`${API_BASE_URL}/delivery/failover/manual`, {

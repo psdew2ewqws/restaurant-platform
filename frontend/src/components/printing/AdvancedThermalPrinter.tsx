@@ -205,7 +205,7 @@ export const AdvancedThermalPrinter: React.FC<ThermalPrinterProps> = ({
   const setupWebSocket = () => {
     if (!enableWebSocket) return;
 
-    socketRef.current = io('ws://localhost:3001/printing', {
+    socketRef.current = io('ws://localhost:3002/printing', {
       transports: ['websocket']
     });
 

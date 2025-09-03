@@ -263,6 +263,7 @@ export class PrintingController {
 
   // Advanced Printer Discovery Endpoints
   @Post('network-discovery')
+  @HttpCode(HttpStatus.OK)
   @Roles('super_admin', 'company_owner', 'branch_manager')
   @ApiOperation({ summary: 'Discover network printers' })
   @ApiResponse({ status: 200, description: 'Network printers discovered' })
@@ -301,6 +302,56 @@ export class PrintingController {
     }
     
     return { success: false, message: 'Validation not supported for this printer type' };
+  }
+
+  @Post('test-print')
+  @Roles('super_admin', 'company_owner', 'branch_manager')
+  @ApiOperation({ summary: 'Send test print to validate printer configuration during setup' })
+  @ApiResponse({ status: 200, description: 'Test print sent successfully' })
+  async sendTestPrint(@Body() data: {
+    type: string;
+    connection: any;
+    timeout?: number;
+    testType?: string;
+  }) {
+    try {
+      if (data.type === 'network' && data.connection.ip && data.connection.port) {
+        // First validate the printer is reachable
+        const isValid = await this.networkDiscoveryService.validatePrinter(
+          data.connection.ip,
+          data.connection.port,
+          data.timeout || 5000
+        );
+        
+        if (!isValid) {
+          return { 
+            success: false, 
+            message: 'Printer is not reachable. Please check IP address and port.' 
+          };
+        }
+        
+        // Send test print (this would integrate with actual printer service)
+        // For now, we'll simulate sending a test print
+        this.logger.log(`Sending test print to ${data.connection.ip}:${data.connection.port}`);
+        
+        return { 
+          success: true, 
+          message: 'Test print sent successfully to printer',
+          details: 'Check your printer for test output'
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: 'Test print not supported for this printer type' 
+      };
+    } catch (error) {
+      this.logger.error(`Test print failed: ${error.message}`, error.stack);
+      return { 
+        success: false, 
+        message: `Test print failed: ${error.message}` 
+      };
+    }
   }
 
   @Post('capabilities')

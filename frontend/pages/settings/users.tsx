@@ -110,7 +110,7 @@ export default function UsersPage() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users?page=1&limit=100`)
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/users?page=1&limit=100`)
       if (data) {
         setUsers(data.users || [])
       }
@@ -127,7 +127,7 @@ export default function UsersPage() {
     
     try {
       console.log('Fetching companies for super_admin...', user)
-      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/list`)
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/companies/list`)
       console.log('Companies response:', data)
       if (data) {
         setCompanies(data.companies || [])
@@ -141,7 +141,7 @@ export default function UsersPage() {
   // Fetch available roles based on current user permissions
   const fetchAvailableRoles = useCallback(async () => {
     try {
-      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users/available-roles`)
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/users/available-roles`)
       if (data) {
         setAvailableRoles(data)
       }
@@ -174,7 +174,7 @@ export default function UsersPage() {
         delete apiData.companyId;
       }
 
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/users`, {
         method: 'POST',
         body: JSON.stringify(apiData),
       })
@@ -212,7 +212,7 @@ export default function UsersPage() {
         delete apiData.companyId;
       }
 
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users/${editingUser.id}`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/users/${editingUser.id}`, {
         method: 'PATCH',
         body: JSON.stringify(apiData),
       })
@@ -239,7 +239,7 @@ export default function UsersPage() {
     }
 
     try {
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users/${userId}`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/users/${userId}`, {
         method: 'DELETE',
       })
 

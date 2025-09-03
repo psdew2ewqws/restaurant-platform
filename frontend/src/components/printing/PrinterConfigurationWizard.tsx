@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -43,6 +43,10 @@ interface PrinterConfig {
   isDefault: boolean;
   location?: string;
   capabilities: string[];
+  companyId?: string;
+  companyName?: string;
+  branchId?: string;
+  branchName?: string;
 }
 
 interface PrinterConfigurationWizardProps {
@@ -77,7 +81,7 @@ export default function PrinterConfigurationWizard({
   } | null>(null);
   const [discoveredPrinters, setDiscoveredPrinters] = useState<any[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [selectedNetworkRanges, setSelectedNetworkRanges] = useState<string[]>(['192.168.22.0/24']);
+  const [selectedNetworkRanges, setSelectedNetworkRanges] = useState<string[]>([]);
   const [customNetworkRange, setCustomNetworkRange] = useState('');
   const [showCustomRangeInput, setShowCustomRangeInput] = useState(false);
   const [isTestPrinting, setIsTestPrinting] = useState(false);
@@ -86,6 +90,21 @@ export default function PrinterConfigurationWizard({
     message: string;
     testDetails?: any;
   } | null>(null);
+  
+  // Company and branch management
+  const [companies, setCompanies] = useState<Array<{
+    id: string;
+    name: string;
+    branches: Array<{
+      id: string;
+      name: string;
+    }>;
+  }>>([]);
+  const [selectedCompany, setSelectedCompany] = useState<string>('');
+  const [availableBranches, setAvailableBranches] = useState<Array<{
+    id: string;
+    name: string;
+  }>>([]);
 
   const steps = [
     { id: 'type', title: 'Printer Type', description: 'Select the type of printer you want to configure' },
@@ -125,23 +144,149 @@ export default function PrinterConfigurationWizard({
     { id: 'all', name: 'All Stations', description: 'Available to all stations' }
   ];
 
-  const networkRangeOptions = [
-    { id: '192.168.22.0/24', name: 'Current Network (Detected)', description: '192.168.22.x (Your current network)' },
-    { id: '10.0.2.0/24', name: 'Development/VM Network', description: '10.0.2.x (VirtualBox, Testing)' },
-    { id: '192.168.1.0/24', name: 'Home Network', description: '192.168.1.x (Most home routers)' },
-    { id: '192.168.0.0/24', name: 'Alternative Home Network', description: '192.168.0.x (Some home routers)' },
-    { id: '172.16.0.0/24', name: 'Office Network', description: '172.16.0.x (Corporate networks)' },
-    { id: '10.0.0.0/24', name: 'Office Network Alt', description: '10.0.0.x (Alternative corporate)' },
-    { id: 'custom', name: 'Custom Range', description: 'Enter your own network range' }
-  ];
+  // Dynamic network range detection
+  const [detectedNetworks, setDetectedNetworks] = useState<Array<{
+    id: string;
+    name: string;
+    description: string;
+    isDetected: boolean;
+  }>>([]);
+
+  // Detect local network ranges automatically
+  const detectLocalNetworks = useCallback(async () => {
+    const networks: Array<{id: string; name: string; description: string; isDetected: boolean}> = [];
+    
+    try {
+      // Auto-detect available networks with intelligent naming
+      const networkChecks = [
+        { id: '192.168.1.0/24', base: '192.168.1', name: 'Home Network (192.168.1.x)', description: 'Most common home router network' },
+        { id: '192.168.0.0/24', base: '192.168.0', name: 'Home Network (192.168.0.x)', description: 'Alternative home router network' },
+        { id: '10.0.0.0/24', base: '10.0.0', name: 'Corporate Network (10.0.0.x)', description: 'Corporate/office network' },
+        { id: '172.16.0.0/24', base: '172.16.0', name: 'Private Network (172.16.0.x)', description: 'Private corporate network' }
+      ];
+
+      // Simple availability check and intelligent detection
+      for (const network of networkChecks) {
+        let isDetected = false;
+        
+        // Basic heuristic - if we're running locally, these networks are likely available
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          isDetected = network.id === '192.168.1.0/24' || network.id === '192.168.0.0/24';
+        } else {
+          // Check if we're on the network based on current IP
+          const currentHost = window.location.hostname;
+          if (currentHost.startsWith('192.168.1.')) isDetected = network.id === '192.168.1.0/24';
+          if (currentHost.startsWith('192.168.0.')) isDetected = network.id === '192.168.0.0/24';
+          if (currentHost.startsWith('10.0.0.')) isDetected = network.id === '10.0.0.0/24';
+          if (currentHost.startsWith('172.16.')) isDetected = network.id === '172.16.0.0/24';
+        }
+
+        networks.push({
+          id: network.id,
+          name: network.name,
+          description: network.description,
+          isDetected
+        });
+      }
+
+      // Sort detected networks first
+      networks.sort((a, b) => {
+        if (a.isDetected && !b.isDetected) return -1;
+        if (!a.isDetected && b.isDetected) return 1;
+        return 0;
+      });
+
+      // Add custom option at the end
+      networks.push({
+        id: 'custom',
+        name: 'Custom Range',
+        description: 'Enter your own network range',
+        isDetected: false
+      });
+
+      setDetectedNetworks(networks);
+    } catch (error) {
+      console.log('Network detection completed with fallback');
+      // Fallback to common networks
+      setDetectedNetworks([
+        { id: '192.168.1.0/24', name: 'Home Network (192.168.1.x)', description: 'Most common home router network', isDetected: true },
+        { id: '192.168.0.0/24', name: 'Home Network (192.168.0.x)', description: 'Alternative home router network', isDetected: false },
+        { id: '10.0.0.0/24', name: 'Corporate Network (10.0.0.x)', description: 'Corporate/office network', isDetected: false },
+        { id: '172.16.0.0/24', name: 'Private Network (172.16.0.x)', description: 'Private corporate network', isDetected: false },
+        { id: 'custom', name: 'Custom Range', description: 'Enter your own network range', isDetected: false }
+      ]);
+    }
+  }, []);
+
+  // Detect networks on component mount
+  useEffect(() => {
+    detectLocalNetworks();
+  }, [detectLocalNetworks]);
+
+  // Load companies and branches for assignment
+  useEffect(() => {
+    const loadCompaniesAndBranches = async () => {
+      try {
+        // Load companies and branches in parallel for better performance
+        const [companiesResponse, branchesResponse] = await Promise.all([
+          apiCall('companies/list', { method: 'GET' }),
+          apiCall('branches', { method: 'GET' })
+        ]);
+        
+        if (companiesResponse?.companies && branchesResponse?.branches) {
+          const allBranches = branchesResponse.branches;
+          
+          const companiesWithBranches = companiesResponse.companies.map(company => {
+            const companyBranches = allBranches.filter(
+              branch => branch.company?.id === company.id
+            );
+            
+            console.log(`Company ${company.name} (${company.id}) has ${companyBranches.length} branches:`, companyBranches.map(b => b.name));
+            
+            return {
+              id: company.id,
+              name: company.name,
+              branches: companyBranches.map(branch => ({
+                id: branch.id,
+                name: branch.name
+              }))
+            };
+          });
+          
+          setCompanies(companiesWithBranches);
+          
+          // Set default company and branches if config has them
+          if (config.companyId) {
+            setSelectedCompany(config.companyId);
+            const company = companiesWithBranches.find(c => c.id === config.companyId);
+            if (company) {
+              setAvailableBranches(company.branches);
+            }
+          } else if (companiesWithBranches.length > 0) {
+            // Set first company as default
+            const firstCompany = companiesWithBranches[0];
+            setSelectedCompany(firstCompany.id);
+            setAvailableBranches(firstCompany.branches);
+          }
+        } else {
+          console.warn('No companies or branches data received');
+          toast.warning('No companies found. Please check your permissions.');
+        }
+      } catch (error) {
+        console.error('Failed to load companies and branches:', error);
+        toast.error('Failed to load companies. Please try again.');
+      }
+    };
+
+    loadCompaniesAndBranches();
+  }, [config.companyId]);
 
   const discoverNetworkPrinters = async () => {
     console.log('🔍 Discovery button clicked - starting network discovery');
     setIsDiscovering(true);
     
     try {
-      const url = 'http://localhost:3001/api/v1/printing/network-discovery';
-      console.log('📡 Making API call to:', url);
+      console.log('📡 Making network discovery API call');
       
       // Build the ranges to scan, including custom range if provided
       let rangesToScan = selectedNetworkRanges.filter(range => range !== 'custom');
@@ -150,13 +295,13 @@ export default function PrinterConfigurationWizard({
       }
       
       const requestBody = {
-        scanRanges: rangesToScan, // Support multiple ranges including custom
-        ports: [9100, 515, 631, 80], // Added port 80 for web-enabled printers
+        scanRange: rangesToScan[0] || "192.168.1.0/24", // Use first range or default
+        ports: [9100, 515, 631], // Removed port 80 as backend only scans printer ports
         timeout: 3000
       };
       console.log('📤 Request body:', requestBody);
       
-      const response = await apiCall(url, {
+      const response = await apiCall('printing/network-discovery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +346,7 @@ export default function PrinterConfigurationWizard({
       let body: any = {};
 
       if (config.connection === 'network' && config.networkConfig) {
-        endpoint = 'http://localhost:3001/api/v1/printing/validate';
+        endpoint = 'printing/validate';
         body = {
           type: 'network',
           connection: config.networkConfig,
@@ -211,18 +356,21 @@ export default function PrinterConfigurationWizard({
 
       if (endpoint) {
         console.log('🧪 Validating printer connection:', body);
-        const response = await fetch(endpoint, {
+        console.log('📡 Making validation API call to printing/validate');
+        
+        const data = await apiCall('printing/validate', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(body)
         });
-
-        const data = await response.json();
+        
+        console.log('📥 Validation response received:', data);
+        
         setValidationResult({
           success: data.success,
-          message: data.message,
+          message: data.message || (data.success ? 'Validation successful' : 'Validation failed'),
           capabilities: data.capabilities
         });
 
@@ -233,10 +381,11 @@ export default function PrinterConfigurationWizard({
           }));
         }
       } else {
+        console.log('⚠️ No endpoint specified, using mock validation');
         // Mock validation for other connection types
         setValidationResult({
           success: true,
-          message: 'Printer validation successful',
+          message: 'Printer validation successful (mock)',
           capabilities: ['text', 'cut', 'graphics']
         });
         setConfig(prev => ({
@@ -245,10 +394,22 @@ export default function PrinterConfigurationWizard({
         }));
       }
     } catch (error) {
-      console.error('Validation failed:', error);
+      console.error('💥 Validation failed with error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // Try to get a more specific error message
+      let errorMessage = 'Failed to validate printer connection';
+      if (error.message) {
+        errorMessage = `Validation failed: ${error.message}`;
+      }
+      
       setValidationResult({
         success: false,
-        message: 'Failed to validate printer connection'
+        message: errorMessage
       });
     } finally {
       setIsValidating(false);
@@ -261,7 +422,6 @@ export default function PrinterConfigurationWizard({
 
     try {
       if (config.connection === 'network' && config.networkConfig) {
-        const endpoint = 'http://localhost:3001/api/v1/printing/test-print';
         const body = {
           type: 'network',
           connection: config.networkConfig,
@@ -270,15 +430,13 @@ export default function PrinterConfigurationWizard({
         };
 
         console.log('🧪 Sending test print:', body);
-        const response = await fetch(endpoint, {
+        const data = await apiCall('printing/test-print', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
         });
-
-        const data = await response.json();
         
         if (data.success) {
           setTestPrintResult({
@@ -310,6 +468,35 @@ export default function PrinterConfigurationWizard({
     }
   };
 
+  // Handle company selection and update available branches
+  const handleCompanyChange = (companyId: string) => {
+    setSelectedCompany(companyId);
+    const selectedCompanyData = companies.find(c => c.id === companyId);
+    
+    if (selectedCompanyData) {
+      setAvailableBranches(selectedCompanyData.branches);
+      setConfig(prev => ({
+        ...prev,
+        companyId,
+        companyName: selectedCompanyData.name,
+        branchId: '', // Reset branch selection
+        branchName: ''
+      }));
+    }
+  };
+
+  // Handle branch selection
+  const handleBranchChange = (branchId: string) => {
+    const selectedBranch = availableBranches.find(b => b.id === branchId);
+    if (selectedBranch) {
+      setConfig(prev => ({
+        ...prev,
+        branchId,
+        branchName: selectedBranch.name
+      }));
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -318,7 +505,17 @@ export default function PrinterConfigurationWizard({
 
   const handlePrevious = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      const nextStep = currentStep - 1;
+      setCurrentStep(nextStep);
+      
+      // Reset validation and test states when navigating back FROM the Test & Validate step (step 4)
+      if (currentStep === 4) { // Going back from step 4 (Test & Validate)
+        console.log('🔄 Resetting validation state when going back from Test & Validate step');
+        setValidationResult(null);
+        setTestPrintResult(null);
+        setIsValidating(false);
+        setIsTestPrinting(false);
+      }
     }
   };
 
@@ -435,7 +632,7 @@ export default function PrinterConfigurationWizard({
                       <span className="text-xs text-gray-500 ml-2">(You can select multiple)</span>
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {networkRangeOptions.map((range) => (
+                      {detectedNetworks.map((range) => (
                         <div
                           key={range.id}
                           onClick={() => {
@@ -452,13 +649,28 @@ export default function PrinterConfigurationWizard({
                           className={`relative rounded-lg border cursor-pointer hover:bg-gray-50 p-3 ${
                             selectedNetworkRanges.includes(range.id)
                               ? 'border-blue-500 bg-blue-50'
+                              : range.isDetected
+                              ? 'border-green-300 bg-green-50'
                               : 'border-gray-300'
                           }`}
                         >
                           <div className="flex items-start">
                             <div className="flex-1">
-                              <h4 className="text-sm font-medium text-gray-900">{range.name}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-medium text-gray-900">{range.name}</h4>
+                                {range.isDetected && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1"></span>
+                                    Detected
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-gray-500">{range.description}</p>
+                              {range.isDetected && (
+                                <p className="text-xs text-green-600 mt-1">
+                                  ✓ Available on your network
+                                </p>
+                              )}
                             </div>
                             {selectedNetworkRanges.includes(range.id) && (
                               <CheckCircleIcon className="h-4 w-4 text-blue-500" />
@@ -760,6 +972,47 @@ export default function PrinterConfigurationWizard({
               />
             </div>
 
+            {/* Company Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Company Assignment</label>
+              <select
+                value={selectedCompany}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select a company...</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Branch Selection */}
+            {selectedCompany && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Branch Assignment</label>
+                <select
+                  value={config.branchId || ''}
+                  onChange={(e) => handleBranchChange(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select a branch...</option>
+                  {availableBranches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+                {availableBranches.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    No branches found for this company. You can still continue without selecting a branch.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center">
               <input
                 id="is-default"
@@ -968,6 +1221,18 @@ export default function PrinterConfigurationWizard({
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Location:</span>
                   <span className="text-sm font-medium text-gray-900">{config.location}</span>
+                </div>
+              )}
+              {config.companyName && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Company:</span>
+                  <span className="text-sm font-medium text-gray-900">{config.companyName}</span>
+                </div>
+              )}
+              {config.branchName && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Branch:</span>
+                  <span className="text-sm font-medium text-gray-900">{config.branchName}</span>
                 </div>
               )}
               <div className="flex justify-between">

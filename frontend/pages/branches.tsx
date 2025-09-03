@@ -142,7 +142,7 @@ export default function BranchesPage() {
     if (user?.role !== 'super_admin') return
     
     try {
-      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/list`)
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/companies/list`)
       if (data?.companies) {
         setCompanies(data.companies)
       }
@@ -156,8 +156,8 @@ export default function BranchesPage() {
     try {
       setLoading(true)
       const endpoint = user?.role === 'super_admin' && selectedCompanyId 
-        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches?companyId=${selectedCompanyId}`
-        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches`
+        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/branches?companyId=${selectedCompanyId}`
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/branches`
       
       console.log('🔍 Fetching branches from endpoint:', endpoint)
       
@@ -213,7 +213,7 @@ export default function BranchesPage() {
       // Remove countryCode from the data being sent to API
       const { countryCode, ...apiData } = branchData
 
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/branches`, {
         method: 'POST',
         body: JSON.stringify(apiData),
       })
@@ -259,7 +259,7 @@ export default function BranchesPage() {
 
       console.log('Sending branch data to backend:', branchData)
 
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches/${selectedBranch.id}`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/branches/${selectedBranch.id}`, {
         method: 'PATCH',
         body: JSON.stringify(branchData),
         // Don't skip auth for update - it requires authentication
@@ -293,7 +293,7 @@ export default function BranchesPage() {
     }
     
     try {
-      await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches/${branchId}`, {
+      await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/branches/${branchId}`, {
         method: 'DELETE',
       })
       toast.success('Branch deleted successfully!')

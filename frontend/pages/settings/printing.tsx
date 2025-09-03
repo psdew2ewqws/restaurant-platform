@@ -14,7 +14,8 @@ import {
   ComputerDesktopIcon,
   ClockIcon,
   DocumentTextIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import ProtectedRoute from '../../src/components/ProtectedRoute';
 import LicenseWarningHeader from '../../src/components/LicenseWarningHeader';
@@ -40,7 +41,10 @@ interface Printer {
   manufacturer?: string;
   status: 'online' | 'offline' | 'error' | 'unknown';
   isDefault: boolean;
+  companyId?: string;
+  companyName?: string;
   branchId?: string;
+  branchName?: string;
   assignedTo: 'kitchen' | 'cashier' | 'bar' | 'all';
   lastSeen?: string;
   location?: string;
@@ -87,12 +91,55 @@ export default function PrintingSettings() {
   const [showTemplateDesigner, setShowTemplateDesigner] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState<Printer | null>(null);
   const [showPrinterDetails, setShowPrinterDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
+  // Tab configuration
+  const tabs = [
+    {
+      id: 'overview',
+      name: 'Overview',
+      description: 'Printer status dashboard and management',
+      icon: PrinterIcon
+    },
+    {
+      id: 'discovery',
+      name: 'Network Discovery',
+      description: 'Automatically discover and add network printers',
+      icon: WifiIcon
+    },
+    {
+      id: 'management',
+      name: 'Printer Management',
+      description: 'Add, edit, and configure individual printers',
+      icon: CogIcon
+    },
+    {
+      id: 'queue',
+      name: 'Print Queue',
+      description: 'Monitor and manage print jobs in real-time',
+      icon: DocumentTextIcon
+    },
+    {
+      id: 'testing',
+      name: 'Testing & Diagnostics',
+      description: 'Test printer connections and print quality',
+      icon: CheckCircleIcon
+    },
+    {
+      id: 'templates',
+      name: 'Receipt Templates',
+      description: 'Design and manage printing templates',
+      icon: DocumentTextIcon
+    }
+  ];
 
   // Load printer data
   const loadPrinters = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/printers`);
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/printers`);
       setPrinters(response?.printers || []);
     } catch (error) {
       console.error('Failed to load printers:', error);
@@ -102,10 +149,43 @@ export default function PrintingSettings() {
     }
   }, [apiCall]);
 
+  // Update printer function
+  const updatePrinter = async (printerId: string, updateData: Partial<Printer>) => {
+    try {
+      const response = await apiCall(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/printers/${printerId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      if (response.success) {
+        toast.success('Printer updated successfully');
+        // Update the printer in the local state
+        setPrinters(prev => 
+          prev.map(printer => 
+            printer.id === printerId 
+              ? { ...printer, ...response.printer }
+              : printer
+          )
+        );
+        setShowEditDialog(false);
+        setEditingPrinter(null);
+      }
+    } catch (error) {
+      console.error('Failed to update printer:', error);
+      toast.error('Failed to update printer');
+    }
+  };
+
   // Load print service status
   const loadServiceStatus = useCallback(async () => {
     try {
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/service/status`);
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/service/status`);
       setServiceStatus(response || {
         isRunning: false,
         connectedPrinters: 0,
@@ -120,7 +200,7 @@ export default function PrintingSettings() {
   // Load recent print jobs
   const loadPrintJobs = useCallback(async () => {
     try {
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/jobs?limit=10`);
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/jobs?limit=10`);
       setPrintJobs(response?.jobs || []);
     } catch (error) {
       console.error('Failed to load print jobs:', error);
@@ -133,7 +213,7 @@ export default function PrintingSettings() {
       setIsScanning(true);
       toast.loading('Scanning network for printers...', { duration: 1000 });
       
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/discover`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/discover`, {
         method: 'POST',
         body: JSON.stringify({ timeout: 10000 })
       });
@@ -157,7 +237,7 @@ export default function PrintingSettings() {
     try {
       toast.loading('Testing printer connection...', { duration: 1000 });
       
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/printers/${printerId}/test`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/printers/${printerId}/test`, {
         method: 'POST'
       });
       
@@ -175,14 +255,14 @@ export default function PrintingSettings() {
   // Install print service
   const handleInstallService = useCallback(async () => {
     try {
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/service/install`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/service/install`, {
         method: 'POST'
       });
       
       if (response?.success) {
         toast.success('Print service installer downloaded. Please run the installer.');
         // Trigger download of the installer
-        window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/printing/service/download`, '_blank');
+        window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/printing/service/download`, '_blank');
       }
     } catch (error) {
       console.error('Failed to install service:', error);
@@ -300,7 +380,51 @@ export default function PrintingSettings() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Printer Status Dashboard */}
+          {/* Tabbed Navigation */}
+          <div className="mb-8">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
+                {tabs.map((tab) => {
+                  const IconComponent = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === tab.id
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <IconComponent className={`mr-2 h-5 w-5 ${
+                        activeTab === tab.id ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                      }`} />
+                      {tab.name}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+            
+            {/* Tab descriptions */}
+            <div className="mt-4 mb-6">
+              {tabs.map((tab) => {
+                if (tab.id === activeTab) {
+                  return (
+                    <p key={tab.id} className="text-sm text-gray-600">
+                      {tab.description}
+                    </p>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'overview' && (
+            <>
+              {/* Printer Status Dashboard */}
           <div className="mb-8">
             <PrinterStatusDashboard 
               companyId={user?.companyId}
@@ -443,6 +567,16 @@ export default function PrintingSettings() {
                           </button>
                           <button
                             onClick={() => {
+                              setEditingPrinter(printer);
+                              setShowEditDialog(true);
+                            }}
+                            className="inline-flex items-center px-2 py-1 text-xs text-green-600 hover:text-green-800 hover:bg-green-50 rounded"
+                          >
+                            <PencilIcon className="w-3 h-3 mr-1" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
                               setSelectedPrinter(printer);
                               setShowPrinterDetails(true);
                             }}
@@ -459,27 +593,14 @@ export default function PrintingSettings() {
               )}
             </div>
           </div>
+            </>
+          )}
 
-          {/* Advanced Thermal Printer Component */}
-          <div>
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <WifiIcon className="w-5 h-5 mr-2" />
-                  Advanced Printer Control
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Direct browser printing with WebUSB, Web Serial, and WebSocket monitoring
-                </p>
-              </div>
-              <div className="p-6">
-                <AdvancedThermalPrinter />
-              </div>
-            </div>
-          </div>
-
-          {/* Printer Discovery Component */}
-          <div>
+          {/* Network Discovery Tab */}
+          {activeTab === 'discovery' && (
+            <div className="space-y-8">
+              {/* Printer Discovery Component */}
+              <div>
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -500,7 +621,36 @@ export default function PrintingSettings() {
                 />
               </div>
             </div>
-          </div>
+            </div>
+            </div>
+          )}
+
+          {/* Management Tab */}
+          {activeTab === 'management' && (
+            <div className="space-y-8">
+              {/* Advanced Printer Control */}
+              <div>
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <WifiIcon className="w-5 h-5 mr-2" />
+                      Advanced Printer Control
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Direct browser printing with WebUSB, Web Serial, and WebSocket monitoring
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <AdvancedThermalPrinter />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Print Queue Tab */}
+          {activeTab === 'queue' && (
+            <div className="space-y-8">
 
           {/* Print Job Queue Management */}
           <div>
@@ -581,7 +731,57 @@ export default function PrintingSettings() {
                 </div>
               )}
             </div>
-          </div>
+            </div>
+            </div>
+          )}
+
+          {/* Testing & Diagnostics Tab */}
+          {activeTab === 'testing' && (
+            <div className="space-y-8">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Printer Testing & Diagnostics
+                </h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Test your printers with different types of content and multiple copies
+                </p>
+                
+                {/* Testing interface will be added here */}
+                <div className="text-center py-8 text-gray-500">
+                  Advanced testing features will be available in this tab
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Receipt Templates Tab */}
+          {activeTab === 'templates' && (
+            <div className="space-y-8">
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Receipt Template Designer
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Design and manage custom receipt templates
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowTemplateDesigner(true)}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-100 hover:bg-blue-200 rounded-md"
+                  >
+                    <CogIcon className="w-4 h-4 mr-2" />
+                    Design Templates
+                  </button>
+                </div>
+                
+                <div className="text-center py-8 text-gray-500">
+                  Template management interface will be available here
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Printer Configuration Wizard */}
@@ -608,7 +808,7 @@ export default function PrintingSettings() {
                 };
 
                 // Save printer to backend
-                await apiCall('http://localhost:3001/api/v1/printing/printers', {
+                await apiCall('http://localhost:3002/api/v1/printing/printers', {
                   method: 'POST',
                   body: JSON.stringify(printerDto)
                 });
@@ -636,6 +836,177 @@ export default function PrintingSettings() {
             }}
             onCancel={() => setShowTemplateDesigner(false)}
           />
+        )}
+
+        {/* Printer Edit Dialog */}
+        {showEditDialog && editingPrinter && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Edit Printer: {editingPrinter.name}
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Printer Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingPrinter.name}
+                      onChange={(e) => setEditingPrinter(prev => prev ? {...prev, name: e.target.value} : null)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Printer Type
+                    </label>
+                    <select
+                      value={editingPrinter.type}
+                      onChange={(e) => setEditingPrinter(prev => prev ? {...prev, type: e.target.value as any} : null)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="receipt">Receipt Printer</option>
+                      <option value="kitchen">Kitchen Printer</option>
+                      <option value="thermal">Thermal Printer</option>
+                      <option value="label">Label Printer</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Company
+                    </label>
+                    <select
+                      value={editingPrinter.companyId || ''}
+                      onChange={(e) => {
+                        const companyId = e.target.value;
+                        const companyName = companyId === 'company-1' ? 'Main Restaurant Group' : 
+                                           companyId === 'company-2' ? 'Fast Food Chain' : '';
+                        setEditingPrinter(prev => prev ? {
+                          ...prev, 
+                          companyId: companyId || undefined,
+                          companyName: companyName || undefined,
+                          branchId: undefined, // Reset branch when company changes
+                          branchName: undefined
+                        } : null);
+                      }}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Company...</option>
+                      <option value="company-1">Main Restaurant Group</option>
+                      <option value="company-2">Fast Food Chain</option>
+                    </select>
+                  </div>
+
+                  {editingPrinter.companyId && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Branch
+                      </label>
+                      <select
+                        value={editingPrinter.branchId || ''}
+                        onChange={(e) => {
+                          const branchId = e.target.value;
+                          let branchName = '';
+                          if (branchId === 'branch-1') branchName = 'Downtown Location';
+                          else if (branchId === 'branch-2') branchName = 'Mall Location';
+                          else if (branchId === 'branch-3') branchName = 'Airport Location';
+                          else if (branchId === 'branch-4') branchName = 'North Branch';
+                          else if (branchId === 'branch-5') branchName = 'South Branch';
+                          
+                          setEditingPrinter(prev => prev ? {
+                            ...prev, 
+                            branchId: branchId || undefined,
+                            branchName: branchName || undefined
+                          } : null);
+                        }}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select Branch...</option>
+                        {editingPrinter.companyId === 'company-1' && (
+                          <>
+                            <option value="branch-1">Downtown Location</option>
+                            <option value="branch-2">Mall Location</option>
+                            <option value="branch-3">Airport Location</option>
+                          </>
+                        )}
+                        {editingPrinter.companyId === 'company-2' && (
+                          <>
+                            <option value="branch-4">North Branch</option>
+                            <option value="branch-5">South Branch</option>
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Assignment
+                    </label>
+                    <select
+                      value={editingPrinter.assignedTo}
+                      onChange={(e) => setEditingPrinter(prev => prev ? {...prev, assignedTo: e.target.value as any} : null)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="kitchen">Kitchen</option>
+                      <option value="cashier">Cashier</option>
+                      <option value="bar">Bar</option>
+                      <option value="all">All</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Location (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editingPrinter.location || ''}
+                      onChange={(e) => setEditingPrinter(prev => prev ? {...prev, location: e.target.value} : null)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., Front Counter, Kitchen Station 1"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowEditDialog(false);
+                      setEditingPrinter(null);
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (editingPrinter) {
+                        updatePrinter(editingPrinter.id, {
+                          name: editingPrinter.name,
+                          type: editingPrinter.type,
+                          companyId: editingPrinter.companyId,
+                          companyName: editingPrinter.companyName,
+                          branchId: editingPrinter.branchId,
+                          branchName: editingPrinter.branchName,
+                          assignedTo: editingPrinter.assignedTo,
+                          location: editingPrinter.location
+                        });
+                      }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </ProtectedRoute>

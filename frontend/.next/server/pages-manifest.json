@@ -1,6 +1,8 @@
 {
   "/_app": "pages/_app.js",
-  "/_document": "pages/_document.js",
   "/_error": "pages/_error.js",
-  "/settings/printing": "pages/settings/printing.js"
+  "/_document": "pages/_document.js",
+  "/settings/printing": "pages/settings/printing.js",
+  "/settings/delivery": "pages/settings/delivery.js",
+  "/dashboard": "pages/dashboard.js"
 }

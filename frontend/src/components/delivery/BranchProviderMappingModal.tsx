@@ -24,7 +24,7 @@ interface Branch {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash on Delivery' },

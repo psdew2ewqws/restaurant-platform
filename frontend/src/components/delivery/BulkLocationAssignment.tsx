@@ -63,7 +63,7 @@ interface BulkLocationAssignmentProps {
   branchId?: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
 export default function BulkLocationAssignment({
   isOpen,

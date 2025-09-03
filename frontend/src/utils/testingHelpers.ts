@@ -1,6 +1,6 @@
 // Testing utilities for delivery system components
 export class DeliveryTestingHelpers {
-  private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  private static API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
   // Safe error message extraction
   static getErrorMessage(error: unknown): string {

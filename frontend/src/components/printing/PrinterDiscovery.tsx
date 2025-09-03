@@ -313,9 +313,16 @@ export default function PrinterDiscovery({ onPrinterSelect, onPrinterAdd }: Prin
                         )}
                         
                         {printer.connection.ip && (
-                          <p className="text-xs text-gray-500">
-                            {printer.connection.ip}:{printer.connection.port}
-                          </p>
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-500">
+                              <span className="font-medium">Network:</span> {printer.connection.ip}:{printer.connection.port}
+                            </p>
+                            {printer.connection.mac && (
+                              <p className="text-xs text-gray-500">
+                                <span className="font-medium">MAC:</span> {printer.connection.mac}
+                              </p>
+                            )}
+                          </div>
                         )}
                         
                         {printer.connection.serialNumber && (
@@ -324,18 +331,72 @@ export default function PrinterDiscovery({ onPrinterSelect, onPrinterAdd }: Prin
                           </p>
                         )}
                         
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          <div className="flex items-center space-x-1">
-                            <ClockIcon className="w-3 h-3" />
-                            <span>{formatLastSeen(printer.lastSeen)}</span>
+                        <div className="space-y-2 text-xs text-gray-500">
+                          <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-1">
+                              <ClockIcon className="w-3 h-3" />
+                              <span>Last seen: {formatLastSeen(printer.lastSeen)}</span>
+                            </div>
                           </div>
                           
                           {printer.capabilities.length > 0 && (
-                            <div className="flex items-center space-x-1">
-                              <span>Capabilities:</span>
-                              <span className="font-medium">{printer.capabilities.join(', ')}</span>
+                            <div>
+                              <span className="font-medium">Capabilities:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {printer.capabilities.map((cap) => (
+                                  <span key={cap} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                    {cap}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
+
+                          {/* Protocol Detection */}
+                          {printer.connection.ip && (
+                            <div>
+                              <span className="font-medium">Supported Protocols:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                  RAW:{printer.connection.port || 9100}
+                                </span>
+                                {printer.connection.port !== 515 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    LPR:515
+                                  </span>
+                                )}
+                                {printer.connection.port !== 631 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                    IPP:631
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Configuration Recommendations */}
+                          <div>
+                            <span className="font-medium">Recommended Settings:</span>
+                            <div className="mt-1 text-xs">
+                              {printer.type === 'network' && printer.connection.port === 9100 && (
+                                <div className="flex items-center space-x-2 text-green-600">
+                                  <CheckCircleIcon className="w-3 h-3" />
+                                  <span>✓ Optimal for thermal receipt printing</span>
+                                </div>
+                              )}
+                              {(printer.manufacturer?.toLowerCase().includes('epson') || 
+                                printer.model?.toLowerCase().includes('tm-')) && (
+                                <div className="flex items-center space-x-2 text-blue-600">
+                                  <span>💡 ESC/POS commands supported</span>
+                                </div>
+                              )}
+                              {printer.connection.port && printer.connection.port !== 9100 && (
+                                <div className="flex items-center space-x-2 text-orange-600">
+                                  <span>⚠️ Consider using port 9100 for direct printing</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

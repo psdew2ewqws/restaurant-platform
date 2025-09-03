@@ -9,8 +9,13 @@ import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SocketIoAdapter } from './common/adapters/socket-io.adapter';
+import { EnvValidationService } from './config/env-validation';
 
 async function bootstrap() {
+  // Validate environment before creating the app
+  const envValidation = new EnvValidationService();
+  const envConfig = envValidation.getConfig();
+  
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });

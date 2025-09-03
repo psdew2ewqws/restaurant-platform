@@ -71,7 +71,7 @@ export default function PrinterStatusDashboard({
 
   useEffect(() => {
     // Initialize WebSocket connection
-    const newSocket = io('ws://localhost:3001/printing', {
+    const newSocket = io('ws://localhost:3002/printing', {
       path: '/socket.io/',
       transports: ['websocket']
     });
@@ -129,7 +129,7 @@ export default function PrinterStatusDashboard({
   const fetchPrinterStatuses = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/v1/printing/printers', {
+      const response = await fetch('http://localhost:3002/api/v1/printing/printers', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

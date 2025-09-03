@@ -175,7 +175,7 @@ export default function CompaniesPage() {
   const fetchCompanies = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies`)
+      const data = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/companies`)
       if (data) {
         setCompanies(data || [])
       }
@@ -199,7 +199,7 @@ export default function CompaniesPage() {
     try {
       // Add timestamp to prevent caching issues
       const timestamp = new Date().getTime()
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/licenses/company/${companyId}?_t=${timestamp}`)
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/licenses/company/${companyId}?_t=${timestamp}`)
       if (response?.data) {
         // License data fetched successfully
         setCompanyLicenses(prev => ({ 
@@ -235,7 +235,7 @@ export default function CompaniesPage() {
   const handleCreateCompany = useCallback(async (data: CreateCompanyForm) => {
     setSubmitting(true)
     try {
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/companies`, {
         method: 'POST',
         body: JSON.stringify(data),
       })
@@ -264,7 +264,7 @@ export default function CompaniesPage() {
       const { slug, licenseDuration, ...updateData } = data
       
       
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/${selectedCompany.id}`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/companies/${selectedCompany.id}`, {
         method: 'PATCH',
         body: JSON.stringify(updateData),
       })
@@ -295,7 +295,7 @@ export default function CompaniesPage() {
     }
 
     try {
-      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies/${companyId}`, {
+      const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/companies/${companyId}`, {
         method: 'DELETE',
       })
 
@@ -351,7 +351,7 @@ export default function CompaniesPage() {
   const handleRenewal = useCallback(async (companyId: string) => {
     setIsRenewing(true)
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/licenses/renew`;
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1'}/licenses/renew`;
       const payload = {
         durationDays: renewalDays,
         companyId: companyId, // Include companyId for super_admin

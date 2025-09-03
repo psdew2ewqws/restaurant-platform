@@ -44,7 +44,7 @@ interface Company {
   };
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
 export default function DeliveryZoneManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);

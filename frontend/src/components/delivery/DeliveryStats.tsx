@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ChartBarIcon, TruckIcon, MapPinIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1';
 
 export default function DeliveryStats() {
   // Fetch delivery statistics

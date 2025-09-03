@@ -13,7 +13,7 @@ export function getImageUrl(relativeUrl: string | null | undefined): string {
 
   // Convert relative URL to full backend URL
   // Static files are served directly (not through /api/v1)
-  const backendUrl = 'http://localhost:3001';
+  const backendUrl = 'http://localhost:3002';
   
   // Remove leading slash if present to avoid double slashes
   const cleanUrl = relativeUrl.startsWith('/') ? relativeUrl.slice(1) : relativeUrl;
