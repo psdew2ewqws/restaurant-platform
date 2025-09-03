@@ -12,6 +12,9 @@ export const useApiClient = () => {
   const router = useRouter()
 
   const apiCall = useCallback(async (url: string, options: ApiOptions = {}) => {
+    console.log('🚀 useApiClient.apiCall called with URL:', url);
+    console.log('🔧 useApiClient.apiCall options:', options);
+    
     const { skipAuth = false, ...requestOptions } = options
 
     // Base configuration
@@ -27,6 +30,7 @@ export const useApiClient = () => {
     if (!skipAuth) {
       // Get token from context or fallback to localStorage
       const authToken = token || localStorage.getItem('auth-token')
+      console.log('🔑 Auth token found:', authToken ? 'Yes' : 'No');
       if (authToken) {
         config.headers = {
           ...config.headers,
@@ -35,7 +39,10 @@ export const useApiClient = () => {
       }
     }
 
+    console.log('📋 Final request config:', config);
+
     try {
+      console.log('🌐 Making fetch request to:', url);
       const response = await fetch(url, config)
 
       // Handle unauthorized responses

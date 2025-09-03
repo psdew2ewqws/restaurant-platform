@@ -102,6 +102,57 @@ export class BranchesService extends BaseService<any> {
     return branches;
   }
 
+  async findAllPublic(filters: { companyId?: string } = {}) {
+    // Public method for delivery zone creation - shows all active branches
+    const whereClause: any = {
+      isActive: true, // Only show active branches
+    };
+
+    // Optional company filter
+    if (filters.companyId) {
+      whereClause.companyId = filters.companyId;
+    }
+
+    const branches = await this.prisma.branch.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        nameAr: true,
+        phone: true,
+        email: true,
+        address: true,
+        city: true,
+        country: true,
+        latitude: true,
+        longitude: true,
+        openTime: true,
+        closeTime: true,
+        isDefault: true,
+        isActive: true,
+        allowsOnlineOrders: true,
+        allowsDelivery: true,
+        allowsPickup: true,
+        timezone: true,
+        createdAt: true,
+        updatedAt: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          }
+        }
+      },
+      orderBy: [
+        { isDefault: 'desc' }, // Default branches first
+        { name: 'asc' }
+      ]
+    });
+
+    return branches;
+  }
+
   async findOne(id: string, user: any) {
     const whereClause = this.buildBaseWhereClause(user, { id });
 

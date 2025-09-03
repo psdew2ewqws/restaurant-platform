@@ -71,7 +71,7 @@ export default function DeliveryStats() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Delivery Zones</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {statsData.zones.active}/{statsData.zones.total}
+                {statsData?.zones?.active || 0}/{statsData?.zones?.total || 0}
               </p>
               <p className="text-sm text-green-600">Active zones</p>
             </div>
@@ -83,7 +83,7 @@ export default function DeliveryStats() {
             <TruckIcon className="h-8 w-8 text-green-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Orders</p>
-              <p className="text-2xl font-semibold text-gray-900">{statsData.orders.total.toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-gray-900">{(statsData?.orders?.total || 0).toLocaleString()}</p>
               <p className="text-sm text-green-600">Delivery orders</p>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function DeliveryStats() {
             <CurrencyDollarIcon className="h-8 w-8 text-purple-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Avg Delivery Fee</p>
-              <p className="text-2xl font-semibold text-gray-900">{statsData.orders.averageDeliveryFee} JOD</p>
+              <p className="text-2xl font-semibold text-gray-900">{statsData?.orders?.averageDeliveryFee || 0} JOD</p>
               <p className="text-sm text-green-600">Per order</p>
             </div>
           </div>

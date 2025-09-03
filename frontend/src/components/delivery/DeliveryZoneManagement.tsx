@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import CreateZoneModal from './CreateZoneModal';
-import LocationSearchModal from './LocationSearchModal';
+import LocationManagement from './LocationManagement';
 import BulkLocationAssignment from './BulkLocationAssignment';
 
 interface DeliveryZone {
@@ -49,7 +49,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/a
 export default function DeliveryZoneManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedZone, setSelectedZone] = useState<DeliveryZone | null>(null);
-  const [showLocationSearch, setShowLocationSearch] = useState(false);
+  const [showLocationManagement, setShowLocationManagement] = useState(false);
   const [showBulkAssignment, setShowBulkAssignment] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
@@ -151,11 +151,11 @@ export default function DeliveryZoneManagement() {
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={() => setShowLocationSearch(true)}
+            onClick={() => setShowLocationManagement(true)}
             className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             <MagnifyingGlassIcon className="h-4 w-4 mr-2" />
-            Browse Locations
+            Manage Locations
           </button>
           <button
             onClick={() => setShowBulkAssignment(true)}
@@ -287,22 +287,6 @@ export default function DeliveryZoneManagement() {
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
-                {/* Only show delivery fee if company has set one */}
-                {zone.deliveryFee && (
-                  <div>
-                    <span className="text-gray-500">Delivery Fee:</span>
-                    <p className="font-medium">{zone.deliveryFee} JOD</p>
-                  </div>
-                )}
-                
-                {/* Only show average time if calculated */}
-                {zone.averageDeliveryTimeMins && (
-                  <div>
-                    <span className="text-gray-500">Avg. Time:</span>
-                    <p className="font-medium">{zone.averageDeliveryTimeMins} min</p>
-                  </div>
-                )}
-                
                 <div>
                   <span className="text-gray-500">Priority:</span>
                   <p className="font-medium">Level {zone.priorityLevel}</p>
@@ -326,8 +310,8 @@ export default function DeliveryZoneManagement() {
                 <span className="text-xs text-gray-500">
                   {zone._count?.orders || 0} orders
                 </span>
-                <div className="text-xs text-gray-400">
-                  {zone.deliveryFee ? 'Company pricing set' : 'Pricing pending'}
+                <div className="text-xs text-blue-600">
+                  Pricing managed by company
                 </div>
               </div>
             </div>
@@ -347,16 +331,11 @@ export default function DeliveryZoneManagement() {
         />
       )}
 
-      {showLocationSearch && (
-        <LocationSearchModal
-          isOpen={showLocationSearch}
-          onClose={() => setShowLocationSearch(false)}
-          onSelect={(location) => {
-            console.log('Selected location for browsing:', location);
-            setShowLocationSearch(false);
-          }}
-          title="Browse Jordan Locations"
-          multiSelect={false}
+      {showLocationManagement && (
+        <LocationManagement
+          isOpen={showLocationManagement}
+          onClose={() => setShowLocationManagement(false)}
+          title="Jordan Locations Management"
         />
       )}
 

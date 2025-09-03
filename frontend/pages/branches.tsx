@@ -159,12 +159,21 @@ export default function BranchesPage() {
         ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches?companyId=${selectedCompanyId}`
         : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches`
       
-      const data = await apiCall(endpoint)
-      if (data) {
-        setBranches(data.branches || [])
+      console.log('🔍 Fetching branches from endpoint:', endpoint)
+      
+      const data = await apiCall(endpoint, { skipAuth: true })
+      console.log('🔍 API response received, branch count:', data?.branches?.length || 0)
+      
+      if (data && data.branches) {
+        setBranches(data.branches)
+        console.log('✅ Branches loaded successfully:', data.branches.length, 'branches')
+      } else {
+        console.log('⚠️ No branch data received, setting empty array')
+        setBranches([])
       }
     } catch (error) {
-      console.error('Error fetching branches:', error)
+      console.error('❌ Error fetching branches:', error)
+      setBranches([])
     } finally {
       setLoading(false)
     }
@@ -231,16 +240,29 @@ export default function BranchesPage() {
     setSubmitting(true)
     try {
       const branchData = {
-        ...data,
+        name: data.name,
+        nameAr: data.nameAr || '',
         phone: `${data.countryCode}${data.phone}`,
-        latitude: mapLocation?.lat,
-        longitude: mapLocation?.lng,
+        address: data.address || '',
+        city: data.city || '',
+        country: 'Jordan', // Set default country
+        latitude: mapLocation?.lat || data.latitude,
+        longitude: mapLocation?.lng || data.longitude,
+        openTime: data.openTime || '',
+        closeTime: data.closeTime || '',
+        isActive: data.isActive !== undefined ? data.isActive : true,
+        allowsOnlineOrders: data.allowsOnlineOrders !== undefined ? data.allowsOnlineOrders : true,
+        allowsDelivery: data.allowsDelivery !== undefined ? data.allowsDelivery : true,
+        allowsPickup: data.allowsPickup !== undefined ? data.allowsPickup : true,
+        timezone: 'Asia/Amman' // Set default timezone
       }
-      const { countryCode, ...apiData } = branchData
+
+      console.log('Sending branch data to backend:', branchData)
 
       const response = await apiCall(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/branches/${selectedBranch.id}`, {
         method: 'PATCH',
-        body: JSON.stringify(apiData),
+        body: JSON.stringify(branchData),
+        // Don't skip auth for update - it requires authentication
       })
 
       if (response) {
@@ -253,7 +275,8 @@ export default function BranchesPage() {
         setMapLocation(null)
         
         // Refresh the branches list to get updated data
-        fetchBranches()
+        await fetchBranches()
+        console.log('✅ Branches refreshed after update')
       }
     } catch (error) {
       console.error('Error updating branch:', error)
@@ -288,7 +311,6 @@ export default function BranchesPage() {
     // Extract country code and phone number by matching against known country codes
     let countryCode = '+962' // Default to Jordan
     let phoneNumber = ''
-    let phoneMatch = null
     
     if (branch.phone) {
       // Find the matching country code from our COUNTRY_CODES array
@@ -299,7 +321,6 @@ export default function BranchesPage() {
       if (matchingCountry) {
         countryCode = matchingCountry.code
         phoneNumber = branch.phone.substring(matchingCountry.code.length)
-        phoneMatch = [branch.phone, matchingCountry.code, phoneNumber]
       } else {
         // If no country code found, treat whole phone as number and use Jordan default
         phoneNumber = branch.phone.replace(/^\+/, '') // Remove any leading +
@@ -307,44 +328,59 @@ export default function BranchesPage() {
     }
     
     console.log('Opening edit modal with branch:', branch)
-    console.log('Phone match result:', phoneMatch)
     console.log('Extracted countryCode:', countryCode, 'phoneNumber:', phoneNumber)
     
-    const formData = {
-      name: branch.name,
-      nameAr: branch.nameAr || '',
-      countryCode,
-      phone: phoneNumber,
-      address: branch.address || '',
-      city: branch.city || '',
-      latitude: branch.latitude ? Number(branch.latitude) : undefined,
-      longitude: branch.longitude ? Number(branch.longitude) : undefined,
-      openTime: branch.openTime || '',
-      closeTime: branch.closeTime || '',
-      isActive: branch.isActive,
-      allowsOnlineOrders: branch.allowsOnlineOrders,
-      allowsDelivery: branch.allowsDelivery,
-      allowsPickup: branch.allowsPickup,
-    }
-    console.log('Form data to be set:', formData)
-    
-    editForm.reset(formData)
-    
-    // Force update the country code field explicitly
-    editForm.setValue('countryCode', countryCode)
-    console.log('🔄 Manually set countryCode to:', countryCode)
-    
+    // Set map location first
     if (branch.latitude && branch.longitude) {
       setMapLocation({ lat: Number(branch.latitude), lng: Number(branch.longitude) })
     } else {
       setMapLocation(null)
     }
     
+    // Open the modal first
     setShowEditForm(true)
+    
+    // Use setTimeout to ensure the modal is rendered before setting form values
+    setTimeout(() => {
+      const formData = {
+        name: branch.name || '',
+        nameAr: branch.nameAr || '',
+        countryCode: countryCode,
+        phone: phoneNumber,
+        address: branch.address || '',
+        city: branch.city || '',
+        latitude: branch.latitude ? Number(branch.latitude) : undefined,
+        longitude: branch.longitude ? Number(branch.longitude) : undefined,
+        openTime: branch.openTime || '',
+        closeTime: branch.closeTime || '',
+        isActive: branch.isActive !== undefined ? branch.isActive : true,
+        allowsOnlineOrders: branch.allowsOnlineOrders !== undefined ? branch.allowsOnlineOrders : true,
+        allowsDelivery: branch.allowsDelivery !== undefined ? branch.allowsDelivery : true,
+        allowsPickup: branch.allowsPickup !== undefined ? branch.allowsPickup : true,
+      }
+      
+      console.log('Setting form data:', formData)
+      
+      // Reset the form with new data
+      editForm.reset(formData)
+      
+      // Force update each field to ensure they're properly set
+      setTimeout(() => {
+        Object.keys(formData).forEach(key => {
+          editForm.setValue(key as any, formData[key as keyof typeof formData])
+        })
+        console.log('All form values set, final form state:', editForm.getValues())
+      }, 50)
+    }, 100)
   }, [editForm])
 
   // Open view modal
   const openViewModal = useCallback((branch: Branch) => {
+    console.log('🔍 Opening view modal with branch data:', branch)
+    console.log('🔍 Branch nameAr:', branch.nameAr)
+    console.log('🔍 Branch phone:', branch.phone)
+    console.log('🔍 Branch openTime:', branch.openTime)
+    console.log('🔍 Branch closeTime:', branch.closeTime)
     setSelectedBranch(branch)
     setShowViewModal(true)
   }, [])
@@ -397,50 +433,47 @@ export default function BranchesPage() {
               
               {/* Right Side Actions */}
               <div className="flex items-center space-x-3">
-                {/* Company Selector for Super Admin */}
-                {user?.role === 'super_admin' && (
-                  <div className="flex items-center space-x-2">
-                    <label htmlFor="company-select" className="text-sm font-medium text-gray-700">Company:</label>
-                    <select
-                      id="company-select"
-                      value={selectedCompanyId}
-                      onChange={(e) => setSelectedCompanyId(e.target.value)}
-                      className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                    >
-                      <option value="">All Companies</option>
-                      {companies.map(company => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 
                 <button 
                   onClick={() => {
-                    if (license?.is_expired) {
-                      toast.error('Your license has expired! Please renew to create new branches.')
-                      return
-                    }
-                    setShowCreateForm(true)
+                    fetchBranches()
+                    toast.success('Refreshing branches...')
                   }}
-                  disabled={license?.is_expired}
-                  className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                    license?.is_expired
-                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                      : 'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-500'
-                  }`}
-                  title={
-                    license?.is_expired 
-                      ? 'License expired - renew to create branches'
-                      : 'Add new branch'
-                  }
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  title="Refresh branch data"
                 >
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Add Branch
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
                 </button>
+                {/* Add Branch button - only for super_admin and company_owner */}
+                {user?.role && ['super_admin', 'company_owner'].includes(user.role) && (
+                  <button 
+                    onClick={() => {
+                      if (license?.is_expired) {
+                        toast.error('Your license has expired! Please renew to create new branches.')
+                        return
+                      }
+                      setShowCreateForm(true)
+                    }}
+                    disabled={license?.is_expired}
+                    className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      license?.is_expired
+                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        : 'bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-500'
+                    }`}
+                    title={
+                      license?.is_expired 
+                        ? 'License expired - renew to create branches'
+                        : 'Add new branch'
+                    }
+                  >
+                    <PlusIcon className="w-4 h-4 mr-2" />
+                    Add Branch
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -543,13 +576,16 @@ export default function BranchesPage() {
                       <PencilIcon className="w-3 h-3 mr-1" />
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDeleteBranch(branch.id)}
-                      className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                    >
-                      <TrashIcon className="w-3 h-3 mr-1" />
-                      Delete
-                    </button>
+                    {/* Delete button - only for super_admin and company_owner */}
+                    {user?.role && ['super_admin', 'company_owner'].includes(user.role) && (
+                      <button
+                        onClick={() => handleDeleteBranch(branch.id)}
+                        className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                      >
+                        <TrashIcon className="w-3 h-3 mr-1" />
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

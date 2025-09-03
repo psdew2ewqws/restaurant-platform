@@ -14,6 +14,7 @@ import LocationSearchModal from './LocationSearchModal';
 
 interface GlobalLocation {
   id: string;
+  originalId: string; // Added missing property
   countryName: string;
   countryNameAr: string;
   governorate: string;

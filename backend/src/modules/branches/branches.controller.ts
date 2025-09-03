@@ -13,6 +13,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator';
 import { BranchesService } from './branches.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -44,11 +45,13 @@ export class BranchesController {
   }
 
   @Get()
-  @Roles('super_admin', 'company_owner', 'branch_manager')
-  @ApiOperation({ summary: 'Get all branches' })
+  @Public()
+  @ApiOperation({ summary: 'Get all branches (public read access for delivery zones)' })
   @ApiResponse({ status: 200, description: 'Branches retrieved successfully' })
-  async findAll(@CurrentUser() user: any, @Query('companyId') companyId?: string) {
-    const branches = await this.branchesService.findAll(user, { companyId });
+  async findAll(@Query('companyId') companyId?: string) {
+    // For delivery zone creation, we need to show all active branches
+    // The service will handle proper filtering
+    const branches = await this.branchesService.findAllPublic({ companyId });
     return { branches };
   }
 

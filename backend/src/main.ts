@@ -8,6 +8,7 @@ import * as compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { SocketIoAdapter } from './common/adapters/socket-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -113,6 +114,10 @@ async function bootstrap() {
       operationsSorter: 'alpha',
     },
   });
+
+  // Configure Socket.io adapter for WebSocket connections with CORS
+  const socketAdapter = new SocketIoAdapter(app);
+  app.useWebSocketAdapter(socketAdapter);
 
   // Start server
   const port = configService.get('PORT', 3002);

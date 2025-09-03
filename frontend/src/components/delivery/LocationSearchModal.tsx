@@ -135,8 +135,8 @@ export default function LocationSearchModal({
       });
       
       const locations: GlobalLocation[] = response.data;
-      const cities = [...new Set(locations.map(l => l.city))].sort();
-      const governorates = [...new Set(locations.map(l => l.governorate))].sort();
+      const cities = Array.from(new Set(locations.map(l => l.city))).sort();
+      const governorates = Array.from(new Set(locations.map(l => l.governorate))).sort();
       
       return { cities, governorates };
     },

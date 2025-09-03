@@ -11,6 +11,7 @@ import { LicensesModule } from './modules/licenses/licenses.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { ModifiersModule } from './modules/modifiers/modifiers.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
+import { PrintingModule } from './modules/printing/printing.module';
 
 // Configuration
 import { appConfig } from './config/app.config';
@@ -41,6 +42,7 @@ import { CommonModule } from './common/common.module';
     MenuModule,
     ModifiersModule,
     DeliveryModule,
+    PrintingModule,
   ],
   controllers: [],
   providers: [],
