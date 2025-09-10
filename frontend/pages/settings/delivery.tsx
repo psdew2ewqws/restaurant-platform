@@ -3,17 +3,17 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeftIcon, PlusIcon, MapPinIcon, TruckIcon, ChartBarIcon, ShieldCheckIcon, BoltIcon, CogIcon } from '@heroicons/react/24/outline';
-import ProtectedRoute from '../../src/components/ProtectedRoute';
-import LicenseWarningHeader from '../../src/components/LicenseWarningHeader';
-import LocationsGrid from '../../src/components/delivery/LocationsGrid';
-import MultiTenantDeliveryProviders from '../../src/components/delivery/MultiTenantDeliveryProviders';
-import DeliveryStats from '../../src/components/delivery/DeliveryStats';
-import IntegrationReadinessCenter from '../../src/components/delivery/IntegrationReadinessCenter';
-import WebhookMonitoringSystem from '../../src/components/delivery/WebhookMonitoringSystem';
-import FailoverManagementSystem from '../../src/components/delivery/FailoverManagementSystem';
-import DeliveryNotificationSystem from '../../src/components/delivery/DeliveryNotificationSystem';
-import CompanyProviderConfigModal from '../../src/components/delivery/CompanyProviderConfigModal';
-import { useAuth } from '../../src/contexts/AuthContext';
+import ProtectedRoute from 'src/components/ProtectedRoute';
+import LicenseWarningHeader from 'src/components/LicenseWarningHeader';
+import LocationsGrid from 'src/components/features/delivery/LocationsGrid';
+import MultiTenantDeliveryProviders from 'src/components/features/delivery/MultiTenantDeliveryProviders';
+import DeliveryStats from 'src/components/features/delivery/DeliveryStats';
+import IntegrationReadinessCenter from 'src/components/features/delivery/IntegrationReadinessCenter';
+import WebhookMonitoringSystem from 'src/components/features/delivery/WebhookMonitoringSystem';
+import FailoverManagementSystem from 'src/components/features/delivery/FailoverManagementSystem';
+import DeliveryNotificationSystem from 'src/components/features/delivery/DeliveryNotificationSystem';
+import CompanyProviderConfigModal from 'src/components/features/delivery/CompanyProviderConfigModal';
+import { useAuth } from 'src/contexts/AuthContext';
 
 export default function DeliverySettings() {
   const router = useRouter();

@@ -277,7 +277,7 @@ export class LicensesService extends BaseService<LicenseEntity> {
   /**
    * Delete (cancel) license
    */
-  async remove(id: string, currentUser: BaseUser) {
+  async remove(id: string, currentUser: { id: string; companyId: string; role: string }) {
     const license = await this.findOne(id, currentUser);
     
     const cancelledLicense = await this.prisma.license.update({

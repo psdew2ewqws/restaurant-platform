@@ -33,7 +33,7 @@ export class MenuService extends BaseService<MenuProductEntity> {
       companyId
     } = filters;
 
-    const currentUser: BaseUser = {
+    const currentUser: { id: string; companyId: string; role: string } = {
       id: 'system',
       companyId: userCompanyId || '',
       role: userRole || 'user'

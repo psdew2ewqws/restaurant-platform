@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { PrismaService } from '../../../shared/database/prisma.service';
 import { ESCPOSService } from './escpos.service';
 import { CreatePrintJobDto } from '../dto/create-print-job.dto';
 

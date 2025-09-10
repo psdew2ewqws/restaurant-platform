@@ -18,6 +18,7 @@ import { RolesGuard } from '../../shared/common/guards/roles.guard';
 import { Roles } from '../../shared/common/decorators/roles.decorator';
 import { CurrentUser } from '../../shared/common/decorators/current-user.decorator';
 import { Public } from '../../shared/common/decorators/public.decorator';
+import { BaseUser } from '../../shared/common/services/base.service';
 import { CreateCompanyDto, UpdateCompanyDto, CompanyResponseDto } from './dto';
 
 @ApiTags('Companies')
@@ -154,7 +155,7 @@ export class CompaniesController {
   @ApiOperation({ summary: 'Delete company (soft delete)' })
   @ApiResponse({ status: 204, description: 'Company deleted successfully' })
   @ApiResponse({ status: 404, description: 'Company not found' })
-  async remove(@Param('id') id: string, @CurrentUser() currentUser: BaseUser) {
+  async remove(@Param('id') id: string, @CurrentUser() currentUser: { id: string; companyId: string; role: string }) {
     await this.companiesService.remove(id, currentUser);
   }
 }

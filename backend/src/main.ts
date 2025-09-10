@@ -8,8 +8,8 @@ import * as compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { SocketIoAdapter } from './shared/common/adapters/socket-io.adapter';
-import { EnvValidationService } from './shared/config/env-validation';
+import { SocketIoAdapter } from './common/adapters/socket-io.adapter';
+import { EnvValidationService } from './config/env-validation';
 
 async function bootstrap() {
   // Validate environment before creating the app

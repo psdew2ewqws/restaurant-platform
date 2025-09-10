@@ -253,8 +253,8 @@ export class PromotionCampaignsController {
   @ApiResponse({ status: 201, description: 'Campaign duplicated successfully' })
   async duplicate(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body('name') newName?: string,
     @CurrentUser() user: any,
+    @Body('name') newName?: string,
   ) {
     const originalCampaign = await this.promotionCampaignsService.findOne(id);
     
@@ -285,10 +285,8 @@ export class PromotionCampaignsController {
       timeRanges: originalCampaign.timeRanges,
       totalUsageLimit: originalCampaign.totalUsageLimit,
       perCustomerLimit: originalCampaign.perCustomerLimit,
-      targets: originalCampaign.targets?.map(t => ({
-        targetType: t.targetType,
-        targetId: t.targetId,
-      })),
+      targetPlatforms: originalCampaign.targetPlatforms || [],
+      targetCustomerSegments: originalCampaign.targetCustomerSegments || [],
       // Don't copy codes - let user create new ones
       companyId: user.companyId,
     };
@@ -319,7 +317,7 @@ export class PromotionCampaignsController {
       type: campaign.type,
       discountValue: campaign.discountValue,
       minimumOrderAmount: campaign.minimumOrderAmount,
-      codes: campaign.codes
+      codes: (campaign.codes || [])
         .filter(code => code.isActive)
         .slice(0, 1) // Show only one code for preview
         .map(code => ({ code: code.code })),

@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import ProtectedRoute from '../../src/components/ProtectedRoute';
-import LicenseWarningHeader from '../../src/components/LicenseWarningHeader';
-import OrderTrackingDashboard from '../../src/components/delivery/OrderTrackingDashboard';
-import { useAuth } from '../../src/contexts/AuthContext';
+import ProtectedRoute from 'src/components/ProtectedRoute';
+import LicenseWarningHeader from 'src/components/LicenseWarningHeader';
+import OrderTrackingDashboard from 'src/components/features/delivery/OrderTrackingDashboard';
+import { useAuth } from 'src/contexts/AuthContext';
 
 export default function LiveOrders() {
   const { user } = useAuth();

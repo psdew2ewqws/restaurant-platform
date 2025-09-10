@@ -7,6 +7,7 @@ import {
   MinLength,
   MaxLength
 } from 'class-validator';
+import { ConnectedType } from './branch-availability.dto';
 
 export enum AlertType {
   LOW_STOCK = 'low_stock',
@@ -51,8 +52,8 @@ export class CreateAvailabilityAlertDto {
   connectedId?: string;
 
   @IsOptional()
-  @IsString()
-  connectedType?: string;
+  @IsEnum(ConnectedType)
+  connectedType?: ConnectedType;
 
   @IsOptional()
   @IsArray()

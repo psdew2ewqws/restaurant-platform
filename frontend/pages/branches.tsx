@@ -13,20 +13,20 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 // import { EyeIcon } from '@heroicons/react/24/outline'
-import ProtectedRoute from '../src/components/ProtectedRoute'
-import { useAuth } from '../src/contexts/AuthContext'
-import { useLicense } from '../src/contexts/LicenseContext'
-import LicenseWarningHeader from '../src/components/LicenseWarningHeader'
-import { useApiClient } from '../src/hooks/useApiClient'
+import ProtectedRoute from 'components/ProtectedRoute'
+import { useAuth } from 'src/contexts/AuthContext'
+import { useLicense } from 'src/contexts/LicenseContext'
+import LicenseWarningHeader from 'components/LicenseWarningHeader'
+import { useApiClient } from 'src/hooks/useApiClient'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { COUNTRY_CODES } from '../src/constants/countries'
-import { commonFields, createPhoneValidation } from '../src/schemas/common'
+import { COUNTRY_CODES } from 'constants/countries'
+import { commonFields, createPhoneValidation } from 'src/schemas/common'
 
 // Lazy load map component
-const PigeonMapComponent = lazy(() => import('../src/components/PigeonMapComponent').catch(() => ({ default: () => <div>Map component unavailable</div> })))
+const PigeonMapComponent = lazy(() => import('src/components/shared/PigeonMapComponent').catch(() => ({ default: () => <div>Map component unavailable</div> })))
 
 // Types
 interface Branch {

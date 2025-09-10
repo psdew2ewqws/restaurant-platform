@@ -10,10 +10,10 @@ import {
   CheckCircleIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
-import { MenuProduct } from '../../types/menu';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { getLocalizedText, formatCurrency } from '../../lib/menu-utils';
-import { getImageUrl, getPlaceholderUrl } from '../../utils/imageUrl';
+import { MenuProduct } from '../../../types/menu';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getLocalizedText, formatCurrency } from '../../../shared/lib/menu-utils';
+import { getImageUrl, getPlaceholderUrl } from 'src/utils/imageUrl';
 import Image from 'next/image';
 
 interface ProductViewModalProps {

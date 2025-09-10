@@ -22,7 +22,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Create a new order with order items
    */
-  async create(createOrderDto: CreateOrderDto, currentUser: BaseUser) {
+  async create(createOrderDto: CreateOrderDto, currentUser: { id: string; companyId: string; role: string }) {
     try {
       // Get branch to validate and get company ID
       const branch = await this.prisma.branch.findUnique({
@@ -136,7 +136,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Get paginated orders with filters
    */
-  async findAll(filters: OrderFiltersDto, currentUser: BaseUser) {
+  async findAll(filters: OrderFiltersDto, currentUser: { id: string; companyId: string; role: string }) {
     try {
       const { page, limit, sortBy, sortOrder, ...filterOptions } = filters;
       const { skip, take } = this.buildPaginationParams(page, limit);
@@ -197,7 +197,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Get single order by ID
    */
-  async findOne(id: string, currentUser: BaseUser) {
+  async findOne(id: string, currentUser: { id: string; companyId: string; role: string }) {
     try {
       const where = this.buildBaseWhereClause(currentUser, { id });
 
@@ -238,7 +238,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Update order
    */
-  async update(id: string, updateOrderDto: UpdateOrderDto, currentUser: BaseUser) {
+  async update(id: string, updateOrderDto: UpdateOrderDto, currentUser: { id: string; companyId: string; role: string }) {
     try {
       // Check if order exists and user has access
       await this.findOne(id, currentUser);
@@ -266,7 +266,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Update order status
    */
-  async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto, currentUser: BaseUser) {
+  async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto, currentUser: { id: string; companyId: string; role: string }) {
     try {
       // Check if order exists and user has access
       const existingOrder = await this.findOne(id, currentUser);
@@ -308,7 +308,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Cancel order
    */
-  async cancel(id: string, cancellationReason: string, currentUser: BaseUser) {
+  async cancel(id: string, cancellationReason: string, currentUser: { id: string; companyId: string; role: string }) {
     try {
       const order = await this.findOne(id, currentUser);
 
@@ -337,7 +337,7 @@ export class OrdersService extends BaseService<OrderEntity> {
   /**
    * Get order statistics
    */
-  async getStats(filters: OrderStatsFiltersDto, currentUser: BaseUser) {
+  async getStats(filters: OrderStatsFiltersDto, currentUser: { id: string; companyId: string; role: string }) {
     try {
       const where = this.buildStatsWhereClause(filters, currentUser);
 
@@ -474,7 +474,7 @@ export class OrdersService extends BaseService<OrderEntity> {
     };
   }
 
-  private buildOrderWhereClause(filters: any, currentUser: BaseUser) {
+  private buildOrderWhereClause(filters: any, currentUser: { id: string; companyId: string; role: string }) {
     const where = this.buildBaseWhereClause(currentUser);
 
     if (filters.branchId) where.branchId = filters.branchId;
@@ -510,7 +510,7 @@ export class OrdersService extends BaseService<OrderEntity> {
     return { [field]: sortOrder };
   }
 
-  private buildStatsWhereClause(filters: OrderStatsFiltersDto, currentUser: BaseUser) {
+  private buildStatsWhereClause(filters: OrderStatsFiltersDto, currentUser: { id: string; companyId: string; role: string }) {
     const where = this.buildBaseWhereClause(currentUser);
 
     if (filters.branchId) where.branchId = filters.branchId;

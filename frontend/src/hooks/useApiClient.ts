@@ -15,6 +15,22 @@ export const useApiClient = () => {
     console.log('🚀 useApiClient.apiCall called with URL:', url);
     console.log('🔧 useApiClient.apiCall options:', options);
     
+    // Construct full URL
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // Handle different URL formats
+    let cleanUrl = url;
+    if (url.startsWith('/api/v1/')) {
+      cleanUrl = url; // Already has full path
+    } else if (url.startsWith('api/v1/')) {
+      cleanUrl = `/${url}`; // Add leading slash
+    } else if (!url.startsWith('/')) {
+      cleanUrl = `/api/v1/${url}`; // Add full API path
+    } else {
+      cleanUrl = `/api/v1${url}`; // Add API prefix to relative path
+    }
+    const fullUrl = url.startsWith('http') ? url : `${baseUrl}${cleanUrl}`;
+    console.log('🌍 Full URL:', fullUrl);
+    
     const { skipAuth = false, ...requestOptions } = options
 
     // Base configuration
@@ -42,8 +58,8 @@ export const useApiClient = () => {
     console.log('📋 Final request config:', config);
 
     try {
-      console.log('🌐 Making fetch request to:', url);
-      const response = await fetch(url, config)
+      console.log('🌐 Making fetch request to:', fullUrl);
+      const response = await fetch(fullUrl, config)
 
       // Handle unauthorized responses
       if (response.status === 401) {

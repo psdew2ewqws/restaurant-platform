@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsNumber, IsEnum, IsArray, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNumber, IsEnum, IsArray, IsUUID, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePrinterDto {
@@ -14,11 +14,11 @@ export class CreatePrinterDto {
   type: 'thermal' | 'receipt' | 'kitchen' | 'label';
 
   @ApiProperty({ 
-    enum: ['network', 'usb', 'bluetooth'], 
+    enum: ['network', 'usb', 'bluetooth', 'menuhere'], 
     description: 'Connection type' 
   })
-  @IsEnum(['network', 'usb', 'bluetooth'])
-  connection: 'network' | 'usb' | 'bluetooth';
+  @IsEnum(['network', 'usb', 'bluetooth', 'menuhere'])
+  connection: 'network' | 'usb' | 'bluetooth' | 'menuhere';
 
   @ApiPropertyOptional({ description: 'Printer IP address (for network printers)' })
   @IsOptional()
@@ -78,4 +78,29 @@ export class CreatePrinterDto {
   @IsOptional()
   @IsUUID()
   branchId?: string;
+
+  @ApiPropertyOptional({ 
+    description: 'Delivery platforms assignments',
+    example: { dhub: true, careem: false, talabat: true, callCenter: true, website: false }
+  })
+  @IsOptional()
+  @IsObject()
+  deliveryPlatforms?: {
+    dhub?: boolean;
+    careem?: boolean;
+    talabat?: boolean;
+    callCenter?: boolean;
+    website?: boolean;
+    [key: string]: boolean | undefined;
+  };
+
+  @ApiPropertyOptional({ description: 'License key (Branch ID for auto-detection)' })
+  @IsOptional()
+  @IsString()
+  licenseKey?: string;
+
+  @ApiPropertyOptional({ description: 'Additional description' })
+  @IsOptional()
+  @IsString()
+  description?: string;
 }

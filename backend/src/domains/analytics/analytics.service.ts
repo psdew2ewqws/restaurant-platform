@@ -21,7 +21,7 @@ export class AnalyticsService extends BaseService<AnalyticsEntity> {
   /**
    * Get dashboard analytics data
    */
-  async getDashboardAnalytics(currentUser: BaseUser, dateRange?: { startDate: Date; endDate: Date }) {
+  async getDashboardAnalytics(currentUser: { id: string; companyId: string; role: string }, dateRange?: { startDate: Date; endDate: Date }) {
     try {
       const companyId = currentUser.role === 'super_admin' ? undefined : currentUser.companyId;
       const startDate = dateRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
@@ -104,7 +104,7 @@ export class AnalyticsService extends BaseService<AnalyticsEntity> {
   /**
    * Get sales analytics
    */
-  async getSalesAnalytics(currentUser: BaseUser, filters?: {
+  async getSalesAnalytics(currentUser: { id: string; companyId: string; role: string }, filters?: {
     startDate?: Date;
     endDate?: Date;
     branchId?: string;
@@ -129,7 +129,7 @@ export class AnalyticsService extends BaseService<AnalyticsEntity> {
   /**
    * Get product performance analytics
    */
-  async getProductAnalytics(currentUser: BaseUser, filters?: {
+  async getProductAnalytics(currentUser: { id: string; companyId: string; role: string }, filters?: {
     startDate?: Date;
     endDate?: Date;
     categoryId?: string;
@@ -179,7 +179,7 @@ export class AnalyticsService extends BaseService<AnalyticsEntity> {
   /**
    * Get branch performance analytics
    */
-  async getBranchAnalytics(currentUser: BaseUser, branchId?: string) {
+  async getBranchAnalytics(currentUser: { id: string; companyId: string; role: string }, branchId?: string) {
     try {
       const companyId = currentUser.role === 'super_admin' ? undefined : currentUser.companyId;
 

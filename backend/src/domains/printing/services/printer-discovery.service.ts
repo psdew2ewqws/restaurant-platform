@@ -1,25 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { PrismaService } from '../../../shared/database/prisma.service';
+import { MenuHereIntegrationService } from './menuhere-integration.service';
 import * as net from 'net';
 import * as dgram from 'dgram';
 import { promisify } from 'util';
 
 interface DiscoveredPrinter {
-  ip: string;
-  port: number;
-  name?: string;
+  ip?: string;
+  port?: number;
+  name: string;
   manufacturer?: string;
   model?: string;
   type: 'thermal' | 'receipt' | 'kitchen' | 'label';
-  connection: 'network';
+  connection: 'network' | 'menuhere';
   capabilities: string[];
+  menuHereName?: string; // For MenuHere printers
+  isDefault?: boolean;
 }
 
 @Injectable()
 export class PrinterDiscoveryService {
   private readonly logger = new Logger(PrinterDiscoveryService.name);
   
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private menuHereService: MenuHereIntegrationService
+  ) {}
 
   async discoverPrinters(companyId: string, branchId?: string, timeout: number = 10000): Promise<{
     discovered: DiscoveredPrinter[];
@@ -31,11 +37,12 @@ export class PrinterDiscoveryService {
     const discoveredPrinters: DiscoveredPrinter[] = [];
     
     try {
-      // Parallel discovery methods
-      const [networkPrinters, broadcastPrinters, snmpPrinters] = await Promise.allSettled([
+      // Parallel discovery methods including MenuHere
+      const [networkPrinters, broadcastPrinters, snmpPrinters, menuHerePrinters] = await Promise.allSettled([
         this.discoverNetworkPrinters(timeout),
         this.discoverBroadcastPrinters(timeout),
-        this.discoverSNMPPrinters(timeout)
+        this.discoverSNMPPrinters(timeout),
+        this.discoverMenuHerePrinters()
       ]);
 
       // Combine results
@@ -48,10 +55,15 @@ export class PrinterDiscoveryService {
       if (snmpPrinters.status === 'fulfilled') {
         discoveredPrinters.push(...snmpPrinters.value);
       }
+      if (menuHerePrinters.status === 'fulfilled') {
+        discoveredPrinters.push(...menuHerePrinters.value);
+      }
 
-      // Remove duplicates based on IP
+      // Remove duplicates based on IP or MenuHere name
       const uniquePrinters = discoveredPrinters.reduce((acc, printer) => {
-        const key = `${printer.ip}:${printer.port}`;
+        const key = printer.connection === 'menuhere' 
+          ? `menuhere:${printer.menuHereName || printer.name}`
+          : `${printer.ip}:${printer.port}`;
         if (!acc.has(key)) {
           acc.set(key, printer);
         }
@@ -332,6 +344,36 @@ export class PrinterDiscoveryService {
     return this.parsePrinterData(Buffer.from(message), ip, port);
   }
 
+  // MenuHere printer discovery
+  private async discoverMenuHerePrinters(): Promise<DiscoveredPrinter[]> {
+    try {
+      this.logger.log('Discovering printers via MenuHere...');
+      const menuHerePrinters = await this.menuHereService.discoverPrinters();
+      
+      return menuHerePrinters.map(printer => ({
+        name: printer.name,
+        manufacturer: printer.manufacturer || 'MenuHere',
+        model: printer.model || 'Managed Printer',
+        type: this.inferPrinterTypeFromName(printer.name),
+        connection: 'menuhere' as const,
+        capabilities: printer.capabilities,
+        menuHereName: printer.name,
+        isDefault: printer.isDefault
+      }));
+    } catch (error) {
+      this.logger.warn('MenuHere printer discovery failed:', error.message);
+      return [];
+    }
+  }
+
+  private inferPrinterTypeFromName(name: string): 'thermal' | 'receipt' | 'kitchen' | 'label' {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('kitchen')) return 'kitchen';
+    if (lowerName.includes('label')) return 'label';
+    if (lowerName.includes('thermal')) return 'thermal';
+    return 'receipt'; // Default
+  }
+
   private async addDiscoveredPrinters(
     printers: DiscoveredPrinter[],
     companyId: string,
@@ -342,51 +384,92 @@ export class PrinterDiscoveryService {
     
     for (const printer of printers) {
       try {
-        // Check if printer already exists
-        const existingPrinter = await this.prisma.printer.findFirst({
-          where: {
-            ip: printer.ip,
-            port: printer.port,
-            companyId
-          }
-        });
+        let existingPrinter;
+
+        // Check if printer already exists (different logic for MenuHere vs network printers)
+        if (printer.connection === 'menuhere') {
+          existingPrinter = await this.prisma.printer.findFirst({
+            where: {
+              connection: 'menuhere',
+              OR: [
+                { name: printer.name },
+                { 
+                  menuHereConfig: {
+                    path: ['printerName'],
+                    equals: printer.menuHereName
+                  }
+                }
+              ],
+              companyId
+            }
+          });
+        } else {
+          existingPrinter = await this.prisma.printer.findFirst({
+            where: {
+              ip: printer.ip,
+              port: printer.port,
+              companyId
+            }
+          });
+        }
         
         if (existingPrinter) {
           // Update existing printer status
+          const updateData: any = {
+            status: 'online',
+            lastSeen: new Date(),
+            manufacturer: printer.manufacturer || existingPrinter.manufacturer,
+            model: printer.model || existingPrinter.model,
+            capabilities: JSON.stringify(printer.capabilities)
+          };
+
+          if (printer.connection === 'menuhere') {
+            updateData.menuHereConfig = {
+              printerName: printer.menuHereName || printer.name,
+              isMenuHereManaged: true,
+              lastMenuHereSync: new Date()
+            };
+            updateData.isDefault = printer.isDefault || existingPrinter.isDefault;
+          }
+
           await this.prisma.printer.update({
             where: { id: existingPrinter.id },
-            data: {
-              status: 'online',
-              lastSeen: new Date(),
-              manufacturer: printer.manufacturer || existingPrinter.manufacturer,
-              model: printer.model || existingPrinter.model,
-              capabilities: JSON.stringify(printer.capabilities)
-            }
+            data: updateData
           });
           existing++;
         } else {
           // Add new printer
-          await this.prisma.printer.create({
-            data: {
-              name: printer.name || `${printer.manufacturer || 'Network'} Printer`,
-              type: printer.type,
-              connection: printer.connection,
-              ip: printer.ip,
-              port: printer.port,
-              manufacturer: printer.manufacturer,
-              model: printer.model,
-              status: 'online',
-              assignedTo: printer.type === 'kitchen' ? 'kitchen' : 'cashier',
-              companyId,
-              branchId,
-              capabilities: JSON.stringify(printer.capabilities),
-              lastSeen: new Date()
-            }
-          });
+          const createData: any = {
+            name: printer.name || `${printer.manufacturer || 'Network'} Printer`,
+            type: printer.type,
+            connection: printer.connection,
+            manufacturer: printer.manufacturer,
+            model: printer.model,
+            status: 'online',
+            assignedTo: printer.type === 'kitchen' ? 'kitchen' : 'cashier',
+            companyId,
+            branchId,
+            capabilities: JSON.stringify(printer.capabilities),
+            lastSeen: new Date(),
+            isDefault: printer.isDefault || false
+          };
+
+          if (printer.connection === 'menuhere') {
+            createData.menuHereConfig = {
+              printerName: printer.menuHereName || printer.name,
+              isMenuHereManaged: true,
+              lastMenuHereSync: new Date()
+            };
+          } else {
+            createData.ip = printer.ip;
+            createData.port = printer.port;
+          }
+
+          await this.prisma.printer.create({ data: createData });
           added++;
         }
       } catch (error) {
-        this.logger.error(`Failed to add/update printer ${printer.ip}:${printer.port}:`, error);
+        this.logger.error(`Failed to add/update printer ${printer.name}:`, error);
       }
     }
     

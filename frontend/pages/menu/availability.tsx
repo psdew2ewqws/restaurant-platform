@@ -8,7 +8,7 @@ import {
   EyeIcon,
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
-import { ProtectedRoute } from '../../src/components/ProtectedRoute';
+import ProtectedRoute from '../../src/components/ProtectedRoute';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { MenuProduct, Modifier, ModifierCategory } from '../../src/types/menu';
 import toast from 'react-hot-toast';

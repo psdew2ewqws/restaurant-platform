@@ -3,11 +3,11 @@ import { MagnifyingGlassIcon, XMarkIcon, PlusIcon, EyeIcon, PencilIcon, TrashIco
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, Transition, Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
-import apiClient from '../../lib/api';
+import apiClient from 'src/lib/api';
 import { debounce } from 'lodash';
 import { toast } from 'react-hot-toast';
-import { useAuth } from '../../contexts/AuthContext';
-import PigeonMapComponent from '../PigeonMapComponent';
+import { useAuth } from 'src/contexts/AuthContext';
+import PigeonMapComponent from 'src/components/shared/PigeonMapComponent';
 
 interface Assignment {
   branchId: string;

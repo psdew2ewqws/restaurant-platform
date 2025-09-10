@@ -12,7 +12,7 @@ import {
   ArrowTrendingDownIcon,
   EyeIcon
 } from '@heroicons/react/24/outline';
-import { DeliveryTestingHelpers } from '../../utils/testingHelpers';
+import { DeliveryTestingHelpers } from 'src/utils/testingHelpers';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,

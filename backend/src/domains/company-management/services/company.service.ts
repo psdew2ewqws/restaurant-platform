@@ -244,7 +244,7 @@ export class CompanyService {
     return this.companyRepository.save(company);
   }
 
-  async validateCompanyAccess(companyId: string, userCompanyId: string, userRole: UserRole): boolean {
+  async validateCompanyAccess(companyId: string, userCompanyId: string, userRole: UserRole): Promise<boolean> {
     // Super admins can access any company
     if (userRole === UserRole.SUPER_ADMIN) {
       return true;

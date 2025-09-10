@@ -319,7 +319,7 @@ export class CompaniesService extends BaseService<CompanyEntity> {
   /**
    * Soft delete company (mark as deleted)
    */
-  async remove(id: string, currentUser: BaseUser): Promise<Company> {
+  async remove(id: string, currentUser: { id: string; companyId: string; role: string }): Promise<Company> {
     try {
       const company = await this.findOne(id, currentUser);
       

@@ -15,13 +15,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useLanguage } from '../../src/contexts/LanguageContext';
-import { ProtectedRoute } from '../../src/components/ProtectedRoute';
-import { VirtualizedProductGrid } from '../../src/components/menu/VirtualizedProductGrid';
-import { ProductFilters } from '../../src/components/menu/ProductFilters';
-import { CategorySidebar } from '../../src/components/menu/CategorySidebar';
-import { AddProductModal } from '../../src/components/menu/AddProductModal';
-import { EditProductModal } from '../../src/components/menu/EditProductModal';
-import { ProductViewModal } from '../../src/components/menu/ProductViewModal';
+import { ProtectedRoute } from '../../src/components/shared/ProtectedRoute';
+import { VirtualizedProductGrid } from '../../src/components/features/menu/VirtualizedProductGrid';
+import { ProductFilters } from '../../src/components/features/menu/ProductFilters';
+import { CategorySidebar } from '../../src/components/features/menu/CategorySidebar';
+import { AddProductModal } from '../../src/components/features/menu/AddProductModal';
+import { EditProductModal } from '../../src/components/features/menu/EditProductModal';
+import { ProductViewModal } from '../../src/components/features/menu/ProductViewModal';
 import { ProductFilters as ProductFiltersType, MenuProduct, MenuCategory } from '../../src/types/menu';
 import toast from 'react-hot-toast';
 
@@ -64,10 +64,10 @@ export default function MenuProductsPage() {
     
     try {
       const [categoriesRes, tagsRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/categories`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/tags`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/tags`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
         })
       ]);
@@ -146,7 +146,7 @@ export default function MenuProductsPage() {
     
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/bulk-status`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/bulk-status`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ export default function MenuProductsPage() {
     
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/bulk-delete`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/bulk-delete`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -213,7 +213,7 @@ export default function MenuProductsPage() {
   // Product actions
   const handleProductView = useCallback(async (product: MenuProduct) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/${product.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/${product.id}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
@@ -245,7 +245,7 @@ export default function MenuProductsPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/${productId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
@@ -269,7 +269,7 @@ export default function MenuProductsPage() {
   const handleExport = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/export`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/export`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
@@ -303,7 +303,7 @@ export default function MenuProductsPage() {
   const handleDownloadTemplate = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/import-template`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/import-template`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
@@ -378,7 +378,7 @@ export default function MenuProductsPage() {
         }
         
         // Send to backend for processing
-        const importResult = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/import`, {
+        const importResult = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/import`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

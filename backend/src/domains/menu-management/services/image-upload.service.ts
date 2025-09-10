@@ -3,7 +3,7 @@ import { join } from 'path';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import * as sharp from 'sharp';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { PrismaService } from '../../../shared/database/prisma.service';
 
 @Injectable()
 export class ImageUploadService {

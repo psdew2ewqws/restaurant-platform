@@ -43,6 +43,8 @@
     "src/modules/promotions/dto/create-promotion-campaign.dto.ts",
     "src/modules/promotions/promotion-campaigns.controller.ts",
     "src/modules/promotions/promotion-campaigns.service.ts",
-    "src/modules/promotions/services/menu-integration.service.ts"
+    "src/modules/promotions/services/menu-integration.service.ts",
+    "src/domains/**/*",
+    "src/infrastructure/**/*"
   ]
 }

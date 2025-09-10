@@ -10,10 +10,10 @@ import {
   EyeIcon,
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
-import { MenuCategory } from '../../types/menu';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { getLocalizedText } from '../../lib/menu-utils';
+import { MenuCategory } from '../../../types/menu';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getLocalizedText } from '../../../shared/lib/menu-utils';
 import toast from 'react-hot-toast';
 
 interface CategorySidebarProps {

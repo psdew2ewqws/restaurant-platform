@@ -1,5 +1,5 @@
 import React from 'react'
-import { useLicense } from '../contexts/LicenseContext'
+import { useLicense } from 'src/contexts/LicenseContext'
 import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { ClockIcon, ExclamationCircleIcon } from '@heroicons/react/24/solid'
 

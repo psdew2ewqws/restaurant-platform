@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, Inject, forwardRef, Logger } from '@nestjs/common';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { PrismaService } from '../../../shared/database/prisma.service';
 import {
   CreateAvailabilityAlertDto,
   UpdateAvailabilityAlertDto,
   AlertFiltersDto,
   BulkAlertOperationDto,
   AlertType,
-  AlertSeverity
+  AlertSeverity,
+  ConnectedType
 } from '../dto';
 import { AvailabilityGateway } from '../availability.gateway';
 
@@ -34,7 +35,7 @@ export class AlertService {
         title: data.title,
         message: data.message,
         connectedId: data.connectedId,
-        connectedType: data.connectedType,
+        connectedType: data.connectedType as ConnectedType,
         channels: data.channels || []
       },
       include: {

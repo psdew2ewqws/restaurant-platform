@@ -11,9 +11,9 @@ import {
   LanguageIcon,
   StarIcon
 } from '@heroicons/react/24/outline';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { MenuCategory } from '../../types/menu';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { MenuCategory } from '../../../types/menu';
 import { AddOnManagement, ModifierCategory } from './AddOnManagement';
 import toast from 'react-hot-toast';
 

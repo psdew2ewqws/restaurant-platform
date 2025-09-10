@@ -52,7 +52,7 @@ export interface DeliveryResponse {
   trackingUrl?: string;
   estimatedDeliveryTime?: number;
   deliveryFee: number;
-  status: 'pending' | 'accepted' | 'rejected' | 'in_transit' | 'delivered' | 'cancelled';
+  status: 'pending' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled' | 'failed';
   driverInfo?: {
     name: string;
     phone: string;
@@ -68,7 +68,7 @@ export interface DeliveryResponse {
 export interface DeliveryStatusUpdate {
   orderId: string;
   providerOrderId: string;
-  status: 'accepted' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled' | 'failed';
+  status: 'pending' | 'accepted' | 'rejected' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled' | 'failed';
   timestamp: Date;
   location?: {
     lat: number;

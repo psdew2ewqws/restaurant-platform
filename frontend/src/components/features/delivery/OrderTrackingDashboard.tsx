@@ -17,7 +17,7 @@ import {
   BellIcon
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from 'src/contexts/AuthContext';
 
 interface DeliveryOrder {
   id: string;

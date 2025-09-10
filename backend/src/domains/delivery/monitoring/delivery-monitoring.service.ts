@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { DeliveryAnalyticsService } from '../analytics/delivery-analytics.service';
 import { AlertingService } from './alerting.service';
 import { MetricsCollector } from './metrics-collector.service';
+import { DeliveryProviderFactory } from '../factory/delivery-provider.factory';
 import { 
   SystemHealthStatus, 
   MonitoringMetrics, 
@@ -45,7 +46,7 @@ export class DeliveryMonitoringService {
 
   constructor(
     private readonly analyticsService: DeliveryAnalyticsService,
-    private readonly providerFactory: ProviderFactory,
+    private readonly providerFactory: DeliveryProviderFactory,
     private readonly alertingService: AlertingService,
     private readonly metricsCollector: MetricsCollector
   ) {}

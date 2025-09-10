@@ -3,8 +3,8 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { XMarkIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { DeliveryTestingHelpers } from '../../utils/testingHelpers';
-import { useAuth } from '../../contexts/AuthContext';
+import { DeliveryTestingHelpers } from 'src/utils/testingHelpers';
+import { useAuth } from 'src/contexts/AuthContext';
 
 interface CompanyProviderConfigModalProps {
   isOpen: boolean;

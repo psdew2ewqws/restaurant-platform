@@ -16,10 +16,14 @@ export class PromotionCampaignsService {
     // Prepare data for campaign creation (exclude fields that are handled separately)
     const { codes, targets, ...campaignData } = createDto;
     
+    // Extract companyId to avoid relation conflicts
+    const { companyId, ...otherCampaignData } = campaignData;
+    
     // Create promotion campaign
     const campaign = await this.prisma.promotionCampaign.create({
       data: {
-        ...campaignData,
+        ...otherCampaignData,
+        companyId, // Set explicitly
         slug,
         createdBy: userId,
         updatedBy: userId,

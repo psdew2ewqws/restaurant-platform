@@ -5,8 +5,8 @@ import { useRouter } from 'next/router'
 import toast from 'react-hot-toast'
 import { useLanguage } from '../src/contexts/LanguageContext'
 import { useAuth } from '../src/contexts/AuthContext'
-import ProtectedRoute from '../src/components/ProtectedRoute'
-import LicenseWarningHeader from '../src/components/LicenseWarningHeader'
+import ProtectedRoute from '../src/components/shared/ProtectedRoute'
+import LicenseWarningHeader from '../src/components/shared/LicenseWarningHeader'
 import { 
   ChartBarIcon,
   ClockIcon,
@@ -39,7 +39,7 @@ import {
 } from '@heroicons/react/24/solid'
 
 // Import advanced components
-import { PremiumButton, ButtonGroup, ProfessionalCard } from '../src/components/PremiumButton'
+import { PremiumButton, ButtonGroup, ProfessionalCard } from '../src/components/shared/PremiumButton'
 
 // Mock data
 const mockRealtimeMetrics = {

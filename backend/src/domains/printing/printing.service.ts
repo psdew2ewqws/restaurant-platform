@@ -22,12 +22,19 @@ export class PrintingService {
     private tenantPrintingService: TenantPrintingService,
   ) {}
 
-  // Tenant-aware Printer Management
+  // Enhanced Tenant-aware Printer Management
   async findAllPrinters(
     companyId?: string, 
     branchId?: string, 
     userRole?: UserRole,
-    options?: { includeOffline?: boolean; assignment?: string; type?: string }
+    options?: { 
+      includeOffline?: boolean; 
+      assignment?: string; 
+      type?: string;
+      includeCompanyInfo?: boolean;
+      includeDeliveryPlatforms?: boolean;
+      includeLicenseInfo?: boolean;
+    }
   ) {
     const printers = await this.tenantPrintingService.getTenantPrinters(
       companyId, 
@@ -39,8 +46,17 @@ export class PrintingService {
     return {
       printers: printers.map(printer => ({
         ...printer,
-        capabilities: printer.capabilities ? JSON.parse(printer.capabilities) : [],
-        queueLength: printer._count.printJobs
+        capabilities: printer.capabilities ? JSON.parse(printer.capabilities || '[]') : [],
+        queueLength: printer._count?.printJobs || 0,
+        // Include delivery platform info if requested
+        deliveryPlatforms: options?.includeDeliveryPlatforms ? 
+          (printer.deliveryPlatforms || {}) : undefined,
+        // Include license info if requested
+        licenseKey: options?.includeLicenseInfo ? printer.licenseKey : undefined,
+        lastAutoDetection: options?.includeLicenseInfo ? printer.lastAutoDetection : undefined,
+        // Include company/branch info for super admin view
+        companyName: options?.includeCompanyInfo ? printer.companyName : undefined,
+        branchName: printer.branchName
       }))
     };
   }
@@ -60,7 +76,7 @@ export class PrintingService {
 
     return {
       ...printer,
-      capabilities: printer.capabilities ? JSON.parse(printer.capabilities) : []
+      capabilities: this.parseCapabilities(printer.capabilities)
     };
   }
 
@@ -242,12 +258,19 @@ export class PrintingService {
 
   // AI-Enhanced printing methods
   async printOrderWithAI(orderId: string, printerId: string, orderData: any) {
-    const printer = await this.findOnePrinter(printerId);
+    const printer = await this.findOnePrinter(printerId, undefined, undefined, 'super_admin');
     
     try {
       // Use AI-powered ESC/POS service for optimized printing
       // const result = await this.aiEscposService.printOrder(orderData, printer);
-      const result = await this.escposService.printContent(printer, { type: 'receipt', content: [] });
+      const result = await this.escposService.printContent(printer, { 
+        type: 'receipt', 
+        content: [
+          { type: 'text', value: 'Order Receipt\n' },
+          { type: 'text', value: `Order ID: ${orderId}\n` },
+          { type: 'cut' }
+        ] 
+      });
       
       // Create print job record
       const printJob = await this.prisma.printJob.create({
@@ -258,7 +281,7 @@ export class PrintingService {
           companyId: printer.companyId,
           branchId: printer.branchId,
           content: JSON.stringify(orderData),
-          processingTime: result.processingTime || null,
+          processingTime: null,
           error: result.error || null
         }
       });
@@ -557,6 +580,249 @@ export class PrintingService {
       return this.prisma.printTemplate.create({
         data
       });
+    }
+  }
+
+  // License-Based Auto-Detection Methods
+  async validateLicenseKey(licenseKey: string, companyId?: string, userRole?: UserRole): Promise<boolean> {
+    try {
+      // Check if the license key (Branch ID) exists in the database
+      const whereClause: any = { id: licenseKey };
+      
+      // For non-super-admin users, restrict to their company
+      if (userRole !== 'super_admin' && companyId) {
+        whereClause.companyId = companyId;
+      }
+      
+      const branch = await this.prisma.branch.findFirst({
+        where: whereClause
+      });
+      
+      return !!branch;
+    } catch (error) {
+      console.error('License validation error:', error);
+      return false;
+    }
+  }
+
+  async autoDetectPrintersWithLicense(
+    licenseKey: string, 
+    companyId?: string, 
+    options?: {
+      timeout?: number;
+      forceRedetection?: boolean;
+      autoAssignPlatforms?: boolean;
+    }
+  ): Promise<{
+    detected: number;
+    added: number;
+    updated: number;
+    printers: any[];
+  }> {
+    try {
+      // Get branch information using license key
+      const branch = await this.prisma.branch.findFirst({
+        where: { 
+          id: licenseKey,
+          ...(companyId && { companyId })
+        },
+        include: { company: true }
+      });
+
+      if (!branch) {
+        throw new Error('Invalid license key or access denied');
+      }
+
+      // Check if MenuHere integration service is available
+      const menuHereService = this.tenantPrintingService.getMenuHereService();
+      if (!menuHereService) {
+        throw new Error('MenuHere integration service not available');
+      }
+
+      // Perform auto-detection via MenuHere WebSocket
+      const detectedPrinters = await menuHereService.discoverPrinters({
+        timeout: options?.timeout || 30000,
+        licenseKey: licenseKey
+      });
+
+      let addedCount = 0;
+      let updatedCount = 0;
+      const processedPrinters = [];
+
+      for (const detectedPrinter of detectedPrinters) {
+        // Check if printer already exists
+        const existingPrinter = await this.prisma.printer.findFirst({
+          where: {
+            OR: [
+              { licenseKey: licenseKey, name: detectedPrinter.name },
+              { 
+                ip: detectedPrinter.ip, 
+                port: detectedPrinter.port,
+                companyId: branch.companyId 
+              }
+            ]
+          }
+        });
+
+        const printerData = {
+          name: detectedPrinter.name,
+          type: detectedPrinter.type || 'receipt',
+          connection: 'menuhere',
+          ip: detectedPrinter.ip,
+          port: detectedPrinter.port,
+          model: detectedPrinter.model,
+          manufacturer: detectedPrinter.manufacturer,
+          status: 'online',
+          companyId: branch.companyId,
+          companyName: branch.company.name,
+          branchId: branch.id,
+          branchName: branch.name,
+          licenseKey: licenseKey,
+          lastAutoDetection: new Date(),
+          menuHereConfig: {
+            printerName: detectedPrinter.name,
+            isMenuHereManaged: true,
+            lastMenuHereSync: new Date()
+          },
+          // Auto-assign default delivery platforms if requested
+          deliveryPlatforms: options?.autoAssignPlatforms ? {
+            dhub: true,
+            careem: true,
+            talabat: true,
+            callCenter: true,
+            website: false
+          } : {}
+        };
+
+        if (existingPrinter) {
+          if (options?.forceRedetection) {
+            const updatedPrinter = await this.prisma.printer.update({
+              where: { id: existingPrinter.id },
+              data: printerData
+            });
+            updatedCount++;
+            processedPrinters.push(updatedPrinter);
+          } else {
+            processedPrinters.push(existingPrinter);
+          }
+        } else {
+          const newPrinter = await this.prisma.printer.create({
+            data: printerData
+          });
+          addedCount++;
+          processedPrinters.push(newPrinter);
+        }
+      }
+
+      return {
+        detected: detectedPrinters.length,
+        added: addedCount,
+        updated: updatedCount,
+        printers: processedPrinters
+      };
+
+    } catch (error) {
+      console.error('Auto-detection error:', error);
+      throw new Error(`Auto-detection failed: ${error.message}`);
+    }
+  }
+
+  async findPrintersByLicense(
+    licenseKey: string, 
+    companyId?: string,
+    userRole?: UserRole
+  ): Promise<any[]> {
+    try {
+      const whereClause: any = { licenseKey };
+      
+      // For non-super-admin users, restrict to their company
+      if (userRole !== 'super_admin' && companyId) {
+        whereClause.companyId = companyId;
+      }
+      
+      const printers = await this.prisma.printer.findMany({
+        where: whereClause,
+        include: {
+          _count: {
+            select: { printJobs: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return printers.map(printer => ({
+        ...printer,
+        capabilities: this.parseCapabilities(printer.capabilities),
+        queueLength: printer._count.printJobs
+      }));
+    } catch (error) {
+      console.error('Find printers by license error:', error);
+      throw new Error(`Failed to retrieve printers: ${error.message}`);
+    }
+  }
+
+  async updatePrinterPlatforms(
+    printerId: string, 
+    platformData: Record<string, boolean>, 
+    companyId?: string
+  ): Promise<any> {
+    try {
+      const whereClause: any = { id: printerId };
+      
+      // For non-super-admin users, restrict to their company
+      if (companyId) {
+        whereClause.companyId = companyId;
+      }
+
+      const printer = await this.prisma.printer.findFirst({
+        where: whereClause
+      });
+
+      if (!printer) {
+        throw new Error('Printer not found or access denied');
+      }
+
+      // Merge with existing delivery platforms
+      const currentPlatforms = printer.deliveryPlatforms || {};
+      const updatedPlatforms = { ...currentPlatforms, ...platformData };
+
+      const updatedPrinter = await this.prisma.printer.update({
+        where: { id: printerId },
+        data: { deliveryPlatforms: updatedPlatforms }
+      });
+
+      return updatedPrinter;
+    } catch (error) {
+      console.error('Update printer platforms error:', error);
+      throw new Error(`Failed to update platforms: ${error.message}`);
+    }
+  }
+
+  async updatePrinterStatus(printerId: string, status: string, errorMessage?: string) {
+    try {
+      await this.prisma.printer.update({
+        where: { id: printerId },
+        data: {
+          status,
+          errorMessage,
+          lastSeen: new Date()
+        }
+      });
+    } catch (error) {
+      console.error('Update printer status error:', error);
+      throw new Error(`Failed to update printer status: ${error.message}`);
+    }
+  }
+
+  private parseCapabilities(capabilities: string | null): string[] {
+    if (!capabilities) return [];
+    
+    try {
+      // Try parsing as JSON first
+      return JSON.parse(capabilities);
+    } catch {
+      // If it fails, treat as comma-separated string
+      return capabilities.split(',').map(cap => cap.trim()).filter(cap => cap);
     }
   }
 }

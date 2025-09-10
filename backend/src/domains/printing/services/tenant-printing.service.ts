@@ -1,10 +1,14 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { PrismaService } from '../../../shared/database/prisma.service';
 import { UserRole } from '@prisma/client';
+import { MenuHereIntegrationService } from './menuhere-integration.service';
 
 @Injectable()
 export class TenantPrintingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(MenuHereIntegrationService) private menuHereService: MenuHereIntegrationService
+  ) {}
 
   /**
    * Enforces strict multi-tenant isolation for printer operations
@@ -61,6 +65,9 @@ export class TenantPrintingService {
       includeOffline?: boolean;
       assignment?: string;
       type?: string;
+      includeCompanyInfo?: boolean;
+      includeDeliveryPlatforms?: boolean;
+      includeLicenseInfo?: boolean;
     }
   ) {
     // Build where clause with tenant isolation
@@ -102,7 +109,7 @@ export class TenantPrintingService {
       status: 'active'
     };
 
-    return this.prisma.printer.findMany({
+    const printers = await this.prisma.printer.findMany({
       where,
       include: {
         company: { select: { id: true, name: true, slug: true } },
@@ -123,6 +130,21 @@ export class TenantPrintingService {
         { name: 'asc' }
       ]
     });
+
+    // Transform results to include enhanced multi-tenant information
+    return printers.map(printer => ({
+      ...printer,
+      // Add company name for super admin view
+      companyName: options?.includeCompanyInfo ? printer.company?.name : undefined,
+      // Add branch name (always included for location display)
+      branchName: printer.branch?.name,
+      // Include delivery platforms if requested
+      deliveryPlatforms: options?.includeDeliveryPlatforms ? 
+        (printer.deliveryPlatforms || {}) : undefined,
+      // Include license info if requested
+      licenseKey: options?.includeLicenseInfo ? printer.licenseKey : undefined,
+      lastAutoDetection: options?.includeLicenseInfo ? printer.lastAutoDetection : undefined
+    }));
   }
 
   /**
@@ -604,5 +626,12 @@ export class TenantPrintingService {
         branch: { select: { id: true, name: true } }
       }
     });
+  }
+
+  /**
+   * Provides access to MenuHere integration service for printing service
+   */
+  getMenuHereService(): MenuHereIntegrationService {
+    return this.menuHereService;
   }
 }

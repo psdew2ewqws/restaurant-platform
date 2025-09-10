@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 
 export interface BaseEntity {
   id: string;
@@ -60,7 +60,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Common soft delete operation
    */
-  protected async softDelete(model: any, id: string, currentUser: BaseUser): Promise<void> {
+  protected async softDelete(model: any, id: string, currentUser: { id: string; companyId: string; role: string }): Promise<void> {
     await model.update({
       where: { id },
       data: {

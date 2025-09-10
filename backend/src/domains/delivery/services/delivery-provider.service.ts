@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../shared/database/prisma.service';
+import { PrismaService } from '../../../shared/database/prisma.service';
 import { DeliveryErrorLoggerService } from '../../../shared/common/services/delivery-error-logger.service';
 
 export interface DeliveryRequest {

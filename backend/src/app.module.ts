@@ -3,33 +3,33 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 
 // Core modules
-import { DatabaseModule } from './shared/database/database.module';
-import { AuthModule } from './domains/auth/auth.module';
-import { CompaniesModule } from './domains/companies/companies.module';
-import { BranchesModule } from './domains/branches/branches.module';
-import { UsersModule } from './domains/users/users.module';
-import { LicensesModule } from './domains/licenses/licenses.module';
-import { MenuModule } from './domains/menu/menu.module';
-import { ModifiersModule } from './domains/modifiers/modifiers.module';
-import { AvailabilityModule } from './domains/availability/availability.module';
-import { DeliveryModule } from './domains/delivery/delivery.module';
-import { PrintingModule } from './domains/printing/printing.module';
-import { PromotionsModule } from './domains/promotions/promotions.module';
-import { AnalyticsModule } from './domains/analytics/analytics.module';
-import { OrdersModule } from './domains/orders/orders.module';
+import { DatabaseModule } from './modules/database/database.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { CompaniesModule } from './modules/companies/companies.module';
+import { BranchesModule } from './modules/branches/branches.module';
+import { UsersModule } from './modules/users/users.module';
+import { LicensesModule } from './modules/licenses/licenses.module';
+import { MenuModule } from './modules/menu/menu.module';
+import { ModifiersModule } from './modules/modifiers/modifiers.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
+import { PrintingModule } from './modules/printing/printing.module';
+// import { PromotionsModule } from './modules/promotions/promotions.module'; // Still disabled due to TypeScript errors
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { OrdersModule } from './modules/orders/orders.module';
 
 // Configuration
-import { appConfig } from './shared/config/app.config';
-import { databaseConfig } from './shared/config/database.config';
-import { authConfig } from './shared/config/auth.config';
+import { appConfig } from './config/app.config';
+import { databaseConfig } from './config/database.config';
+import { authConfig } from './config/auth.config';
 
 // Common modules
-import { CommonModule } from './shared/common/common.module';
+import { CommonModule } from './common/common.module';
 
 // Security middleware and interceptors
-import { SecurityLoggingMiddleware } from './shared/common/middleware/security-logging.middleware';
-import { InputSanitizationMiddleware } from './shared/common/middleware/input-sanitization.middleware';
-import { SecurityResponseInterceptor } from './shared/common/interceptors/security-response.interceptor';
+import { SecurityLoggingMiddleware } from './common/middleware/security-logging.middleware';
+import { InputSanitizationMiddleware } from './common/middleware/input-sanitization.middleware';
+import { SecurityResponseInterceptor } from './common/interceptors/security-response.interceptor';
 
 // App controller for health checks
 import { AppController } from './app.controller';
@@ -57,7 +57,7 @@ import { AppController } from './app.controller';
     AvailabilityModule,
     DeliveryModule,
     PrintingModule,
-    PromotionsModule,
+    // PromotionsModule, // Still disabled due to TypeScript errors
     AnalyticsModule,
     OrdersModule,
   ],

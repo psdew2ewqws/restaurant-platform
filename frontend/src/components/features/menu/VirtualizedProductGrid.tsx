@@ -13,11 +13,11 @@ import {
   XCircleIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { MenuProduct, ProductFilters } from '../../types/menu';
-import { getLocalizedText, formatCurrency, getStatusConfig, getTagColor, trackPerformanceMetric } from '../../lib/menu-utils';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { getImageUrl, getPlaceholderUrl } from '../../utils/imageUrl';
+import { MenuProduct, ProductFilters } from '../../../types/menu';
+import { getLocalizedText, formatCurrency, getStatusConfig, getTagColor, trackPerformanceMetric } from '../../../shared/lib/menu-utils';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getImageUrl, getPlaceholderUrl } from '../../../utils/imageUrl';
 
 interface VirtualizedProductGridProps {
   filters: ProductFilters;
@@ -82,7 +82,7 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
     try {
       trackPerformanceMetric('product-load-start', Date.now());
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/products/paginated`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/products/paginated`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

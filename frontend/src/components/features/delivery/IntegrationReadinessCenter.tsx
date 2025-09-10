@@ -16,7 +16,7 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { useDeliveryNotifications } from './DeliveryNotificationSystem';
-import { DeliveryTestingHelpers } from '../../utils/testingHelpers';
+import { DeliveryTestingHelpers } from 'src/utils/testingHelpers';
 
 interface IntegrationTest {
   id: string;

@@ -11,10 +11,10 @@ import {
   CurrencyDollarIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
-import { ProductFilters as ProductFiltersType, MenuCategory } from '../../types/menu';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { getLocalizedText, debounce } from '../../lib/menu-utils';
+import { ProductFilters as ProductFiltersType, MenuCategory } from '../../../types/menu';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useLanguage } from '../../../contexts/LanguageContext';
+import { getLocalizedText, debounce } from '../../../shared/lib/menu-utils';
 
 interface ProductFiltersProps {
   filters: ProductFiltersType;
