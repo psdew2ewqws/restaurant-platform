@@ -1,4 +1,4 @@
-import { useLanguage } from '../contexts/LanguageContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { GlobeAltIcon, LanguageIcon } from '@heroicons/react/24/outline'
 import { PremiumButton, ButtonGroup } from './PremiumButton'
 

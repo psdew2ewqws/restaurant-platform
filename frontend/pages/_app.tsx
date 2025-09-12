@@ -5,7 +5,7 @@ import { Toaster } from 'react-hot-toast'
 import { LanguageProvider } from '../src/contexts/LanguageContext'
 import { AuthProvider } from '../src/contexts/AuthContext'
 import { LicenseProvider } from '../src/contexts/LicenseContext'
-import envValidation from '../src/config/env-validation'
+import envValidation from '../src/shared/config/env-validation'
 import '../styles/globals.css'
 
 const queryClient = new QueryClient({

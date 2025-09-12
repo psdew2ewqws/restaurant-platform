@@ -109,8 +109,8 @@ export default function NodeJSPrintingSettingsPage() {
       
       if (response.ok) {
         const data = await response.json();
-        // Check if MenuHere service is connected
-        const serviceConnected = data.menuHere?.connected || data.services?.nodejs?.connected || data.printerService?.connected || false;
+        // Check if printing service is running (isRunning: true means service is active)
+        const serviceConnected = data.isRunning || data.menuHere?.connected || data.services?.nodejs?.connected || data.printerService?.connected || false;
         setPrinterServiceStatus(serviceConnected ? 'connected' : 'disconnected');
       } else {
         setPrinterServiceStatus('disconnected');

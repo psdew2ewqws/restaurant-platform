@@ -171,7 +171,6 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
               loading="lazy"
               placeholder="blur"
               blurDataURL={getPlaceholderUrl()}
-              priority={false}
             />
           ) : (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
@@ -346,15 +345,15 @@ export const VirtualizedProductGrid: React.FC<VirtualizedProductGridProps> = ({
       <Virtuoso
         totalCount={totalRows}
         endReached={() => hasNextPage && loadProducts(false)}
-        overscan={5} // Pre-render rows for smooth scrolling
+        overscan={2} // Reduced overscan for better performance
         itemContent={(rowIndex) => <ProductRow index={rowIndex} />}
         components={{
           Footer: LoadingFooter,
         }}
         style={{ height: '100%' }}
         className="grid-container"
-        // Performance optimizations for large datasets
-        increaseViewportBy={{ top: 500, bottom: 500 }}
+        // Performance optimizations for large datasets - reduced viewport extension
+        increaseViewportBy={{ top: 200, bottom: 200 }}
       />
       
       {products.length === 0 && !loading && (

@@ -1,0 +1,96 @@
+{
+  "name": "printermaster",
+  "version": "2.0.0",
+  "description": "Enterprise Printer Management System for Restaurant POS - QZ-Tray Replacement",
+  "main": "main.js",
+  "keywords": ["electron", "printer", "pos", "restaurant", "escpos", "thermal", "qz-tray"],
+  "author": {
+    "name": "Restaurant Platform",
+    "email": "support@restaurant-platform.com"
+  },
+  "license": "MIT",
+  "homepage": "https://restaurant-platform.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/restaurant-platform/printer-master.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:mac": "electron-builder --mac",
+    "dist": "electron-builder --publish=never",
+    "pack": "electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps",
+    "service:install": "node service.js install",
+    "service:uninstall": "node service.js uninstall",
+    "service:start": "node service.js start",
+    "service:stop": "node service.js stop",
+    "test": "jest",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
+  },
+  "dependencies": {
+    "electron": "^27.0.0",
+    "ws": "^8.14.2",
+    "node-thermal-printer": "^4.4.4",
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "winston": "^3.11.0",
+    "node-windows": "^1.0.0-beta.8",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "productName": "PrinterMaster",
+    "appId": "com.restaurant-platform.printermaster",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "copyright": "Copyright © 2024 Restaurant Platform",
+    "compression": "maximum",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "service.js",
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "requestedExecutionLevel": "requireAdministrator",
+      "verifyUpdateCodeSignature": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Office",
+      "synopsis": "Enterprise Printer Management for Restaurant POS"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

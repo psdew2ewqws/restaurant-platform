@@ -500,4 +500,13 @@ export class PrintingWebSocketGateway
     this.server.emit('printerRegistered', printer);
     this.logger.log(`Broadcasted printer registration: ${printer.name}`);
   }
+
+  public broadcastPrinterDiscovery(discoveredPrinters: any[]): void {
+    this.server.emit('printerDiscovery', {
+      timestamp: new Date(),
+      discovered: discoveredPrinters.length,
+      printers: discoveredPrinters
+    });
+    this.logger.log(`🔍 [WEBSOCKET] Broadcasted discovery of ${discoveredPrinters.length} printers`);
+  }
 }

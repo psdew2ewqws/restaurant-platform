@@ -95,7 +95,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories/${editingCategory.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/categories/${editingCategory.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
       const category = categories.find(c => c.id === categoryId);
       if (!category) return;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories/${categoryId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/categories/${categoryId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +174,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/categories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +223,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/categories/${categoryId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/menu/categories/${categoryId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`

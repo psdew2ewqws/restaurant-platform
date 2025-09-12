@@ -45,6 +45,7 @@ interface PromotionCampaign {
   maxDiscountAmount?: number;
   minimumOrderAmount?: number;
   totalUsageLimit?: number;
+  perCustomerLimit?: number;
   currentUsageCount: number;
   buyQuantity?: number;
   getQuantity?: number;
@@ -117,6 +118,7 @@ interface CreateCampaignFormData {
   description?: { en?: string; ar?: string };
   slug: string;
   type: keyof typeof PromotionTypeLabels;
+  status?: 'draft' | 'active' | 'paused' | 'expired' | 'archived';
   priority: number;
   isPublic: boolean;
   isStackable: boolean;
@@ -126,7 +128,7 @@ interface CreateCampaignFormData {
   maxDiscountAmount?: number;
   minimumOrderAmount?: number;
   totalUsageLimit?: number;
-  perCustomerLimit: number;
+  perCustomerLimit?: number;
   buyQuantity?: number;
   getQuantity?: number;
   getDiscountPercentage?: number;
@@ -1086,8 +1088,8 @@ function EditCampaignModal({ isOpen, onClose, campaign, onSuccess }: EditCampaig
   useEffect(() => {
     if (campaign && isOpen) {
       setFormData({
-        name: campaign.name || { en: '' },
-        description: campaign.description || { en: '', ar: '' },
+        name: { en: campaign.name?.en || '', ar: campaign.name?.ar },
+        description: { en: campaign.description?.en || '', ar: campaign.description?.ar },
         slug: campaign.slug,
         type: campaign.type,
         status: campaign.status,
@@ -1097,7 +1099,6 @@ function EditCampaignModal({ isOpen, onClose, campaign, onSuccess }: EditCampaig
         discountValue: campaign.discountValue,
         maxDiscountAmount: campaign.maxDiscountAmount,
         minimumOrderAmount: campaign.minimumOrderAmount,
-        minimumItemsCount: campaign.minimumItemsCount,
         buyQuantity: campaign.buyQuantity,
         getQuantity: campaign.getQuantity,
         getDiscountPercentage: campaign.getDiscountPercentage,
@@ -1105,8 +1106,6 @@ function EditCampaignModal({ isOpen, onClose, campaign, onSuccess }: EditCampaig
         perCustomerLimit: campaign.perCustomerLimit,
         targetPlatforms: campaign.targetPlatforms || [],
         targetCustomerSegments: campaign.targetCustomerSegments || [],
-        daysOfWeek: campaign.daysOfWeek || [],
-        timeRanges: campaign.timeRanges || [],
       });
     }
   }, [campaign, isOpen]);

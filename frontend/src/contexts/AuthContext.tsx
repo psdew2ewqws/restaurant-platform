@@ -53,26 +53,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         const storedToken = localStorage.getItem('auth-token')
         const storedUser = localStorage.getItem('user')
+        
+        console.log('AuthContext: Hydrating auth state', {
+          hasToken: !!storedToken,
+          hasUser: !!storedUser,
+          tokenPreview: storedToken?.substring(0, 20) + '...',
+        })
 
         if (storedToken && storedUser) {
           try {
             const userData = JSON.parse(storedUser)
             setToken(storedToken)
             setUser(userData)
+            console.log('AuthContext: Successfully restored auth state for user:', userData.email)
           } catch (error) {
-            console.error('Error parsing stored user data:', error)
+            console.error('AuthContext: Error parsing stored user data:', error)
             // Clear invalid data
             localStorage.removeItem('auth-token')
             localStorage.removeItem('user')
             setToken(null)
             setUser(null)
           }
+        } else {
+          console.log('AuthContext: No stored auth data found')
         }
       } catch (error) {
-        console.error('Error hydrating auth state:', error)
+        console.error('AuthContext: Error hydrating auth state:', error)
       } finally {
         setIsLoading(false)
         setIsHydrated(true)
+        console.log('AuthContext: Hydration complete')
       }
     }
 
@@ -98,7 +108,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/auth/login`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+      console.log('AuthContext: Attempting login with API URL:', apiUrl)
+      
+      const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

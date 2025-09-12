@@ -8,7 +8,7 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
-import { validateProviderConfig, testProviderConnection, INTEGRATION_CHECKLIST } from '../../utils/deliveryValidation';
+import { validateProviderConfig, testProviderConnection, INTEGRATION_CHECKLIST } from '../../../utils/deliveryValidation';
 
 export interface ConnectionTestResult {
   success: boolean;

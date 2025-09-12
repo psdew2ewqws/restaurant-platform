@@ -315,7 +315,7 @@ export class PromotionCampaignsController {
       type: campaign.type,
       discountValue: campaign.discountValue,
       minimumOrderAmount: campaign.minimumOrderAmount,
-      codes: [] // Campaign codes not available in this context
+      codes: [], // Campaign codes not available in this context
       isActive: campaign.status === PromotionStatus.active,
       validPlatforms: campaign.targetPlatforms,
       restrictions: {

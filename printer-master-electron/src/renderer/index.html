@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PrinterMaster - Restaurant Printer Management</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" href="../../assets/icon.png">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="header-left">
+        <img src="../../assets/icon.png" alt="PrinterMaster" class="logo" onerror="this.style.display='none'">
+        <h1>PrinterMaster</h1>
+        <span class="version">v2.0.0</span>
+      </div>
+      <div class="header-right">
+        <div class="status-indicator" id="connection-status">
+          <span class="status-dot"></span>
+          <span class="status-text">Initializing...</span>
+        </div>
+        <button class="btn btn-icon" id="settings-btn" title="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11.03L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11.03C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="nav-content">
+      <button class="nav-item active" data-page="dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z"/>
+        </svg>
+        Dashboard
+      </button>
+      <button class="nav-item" data-page="printers">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18,3H6V7H18M19,12A1,1 0 0,1 18,11A1,1 0 0,1 19,10A1,1 0 0,1 20,11A1,1 0 0,1 19,12M16,19H8V14H16M19,8H5A3,3 0 0,0 2,11V17H6V21H18V17H22V11A3,3 0 0,0 19,8Z"/>
+        </svg>
+        Printers
+      </button>
+      <button class="nav-item" data-page="websocket">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16.36,14C16.44,13.3 16.5,12.66 16.5,12S16.44,10.7 16.36,10H19.74C19.9,10.64 20,11.31 20,12S19.9,13.36 19.74,14M14.59,19.56C15.19,18.45 15.65,17.25 15.97,16H18.92C17.96,17.65 16.43,18.93 14.59,19.56M14.34,14H9.66C9.56,13.32 9.5,12.66 9.5,12S9.56,10.68 9.66,10H14.34C14.43,10.68 14.5,11.32 14.5,12S14.43,13.32 14.34,14M12,19.96C11.17,18.76 10.5,17.43 10.09,16H13.91C13.5,17.43 12.83,18.76 12,19.96M8,8H5.08C6.03,6.34 7.57,5.06 9.4,4.44C8.8,5.55 8.35,6.75 8,8M5.08,16H8C8.35,17.25 8.8,18.45 9.4,19.56C7.57,18.93 6.03,17.65 5.08,16M4.26,14C4.1,13.36 4,12.69 4,12S4.1,10.64 4.26,10H7.64C7.56,10.7 7.5,11.3 7.5,12S7.56,13.3 7.64,14M12,4.03C12.83,5.23 13.5,6.57 13.91,8H10.09C10.5,6.57 11.17,5.23 12,4.03M18.92,8H15.97C15.65,6.75 15.19,5.55 14.59,4.44C16.43,5.07 17.96,6.34 18.92,8M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+        </svg>
+        WebSocket
+      </button>
+      <button class="nav-item" data-page="logs">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M15,18V16H6V18H15M18,14V12H6V14H18Z"/>
+        </svg>
+        Logs
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Dashboard Page -->
+    <div class="page active" id="dashboard-page">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="discover-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22A9,9 0 0,0 21,13A9,9 0 0,0 12,4M12.5,8H11V14L15.75,16.85L16.5,15.62L12.5,13.25V8M7.88,3.39L6.6,1.86L2,5.71L3.29,7.24L7.88,3.39M22,5.72L17.4,1.86L16.11,3.39L20.71,7.25L22,5.72Z"/>
+            </svg>
+            Discover Printers
+          </button>
+          <button class="btn btn-secondary" id="refresh-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-header">
+            <h3>System Status</h3>
+          </div>
+          <div class="card-content">
+            <div class="status-grid">
+              <div class="status-item">
+                <div class="status-label">WebSocket Server</div>
+                <div class="status-value" id="websocket-status">Starting...</div>
+              </div>
+              <div class="status-item">
+                <div class="status-label">Restaurant Backend</div>
+                <div class="status-value" id="restaurant-status">Connecting...</div>
+              </div>
+              <div class="status-item">
+                <div class="status-label">Active Connections</div>
+                <div class="status-value" id="connection-count">0</div>
+              </div>
+              <div class="status-item">
+                <div class="status-label">Uptime</div>
+                <div class="status-value" id="uptime">00:00:00</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Printer Overview</h3>
+          </div>
+          <div class="card-content">
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-number" id="total-printers">0</div>
+                <div class="stat-label">Total Printers</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number online" id="online-printers">0</div>
+                <div class="stat-label">Online</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number offline" id="offline-printers">0</div>
+                <div class="stat-label">Offline</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Print Statistics</h3>
+          </div>
+          <div class="card-content">
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-number" id="total-jobs">0</div>
+                <div class="stat-label">Total Jobs</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number" id="queued-jobs">0</div>
+                <div class="stat-label">Queued</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number" id="jobs-today">0</div>
+                <div class="stat-label">Today</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card full-width">
+          <div class="card-header">
+            <h3>Recent Activity</h3>
+          </div>
+          <div class="card-content">
+            <div class="activity-list" id="activity-list">
+              <div class="activity-item">
+                <div class="activity-time">--:--:--</div>
+                <div class="activity-text">PrinterMaster started</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Printers Page -->
+    <div class="page" id="printers-page">
+      <div class="page-header">
+        <h2>Printer Management</h2>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="add-printer-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/>
+            </svg>
+            Add Printer
+          </button>
+        </div>
+      </div>
+
+      <div class="printers-grid" id="printers-grid">
+        <!-- Printer cards will be inserted here -->
+      </div>
+    </div>
+
+    <!-- WebSocket Page -->
+    <div class="page" id="websocket-page">
+      <div class="page-header">
+        <h2>WebSocket Server</h2>
+        <div class="page-actions">
+          <button class="btn btn-secondary" id="restart-websocket-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+            </svg>
+            Restart Server
+          </button>
+        </div>
+      </div>
+
+      <div class="websocket-content">
+        <div class="card">
+          <div class="card-header">
+            <h3>Server Configuration</h3>
+          </div>
+          <div class="card-content">
+            <div class="config-grid">
+              <div class="config-item">
+                <label>Port</label>
+                <input type="number" id="websocket-port" value="9012" min="1" max="65535">
+              </div>
+              <div class="config-item">
+                <label>Host</label>
+                <input type="text" id="websocket-host" value="localhost">
+              </div>
+              <div class="config-item">
+                <label>Status</label>
+                <span class="status-badge" id="ws-status-badge">Running</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Connection Log</h3>
+          </div>
+          <div class="card-content">
+            <div class="connection-log" id="connection-log">
+              <!-- Connection entries will be added here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs Page -->
+    <div class="page" id="logs-page">
+      <div class="page-header">
+        <h2>System Logs</h2>
+        <div class="page-actions">
+          <button class="btn btn-secondary" id="export-logs-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+            </svg>
+            Export Logs
+          </button>
+          <button class="btn btn-secondary" id="clear-logs-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+            </svg>
+            Clear Old Logs
+          </button>
+        </div>
+      </div>
+
+      <div class="logs-content">
+        <div class="logs-filters">
+          <select id="log-level-filter">
+            <option value="">All Levels</option>
+            <option value="error">Error</option>
+            <option value="warn">Warning</option>
+            <option value="info">Info</option>
+            <option value="debug">Debug</option>
+          </select>
+          <input type="text" id="log-search" placeholder="Search logs...">
+        </div>
+        
+        <div class="logs-container">
+          <div class="logs-list" id="logs-list">
+            <!-- Log entries will be added here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal for Printer Details -->
+  <div class="modal" id="printer-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Printer Details</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Printer details will be inserted here -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-action">Test Print</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Container -->
+  <div class="notifications" id="notifications">
+    <!-- Notifications will be inserted here -->
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

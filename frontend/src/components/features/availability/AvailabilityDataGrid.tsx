@@ -15,7 +15,7 @@ import {
   CheckCircleIcon as CheckCircleIconSolid,
   ExclamationTriangleIcon as ExclamationTriangleIconSolid
 } from '@heroicons/react/24/solid';
-import { BranchAvailability, ConnectedType } from '../../types/menu';
+import { BranchAvailability, ConnectedType } from '../../../types/menu';
 
 interface AvailabilityDataGridProps {
   items: BranchAvailability[];

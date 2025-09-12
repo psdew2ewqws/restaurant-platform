@@ -23,7 +23,7 @@ import { PrintingService } from './printing.service';
 import { PrinterDiscoveryService } from './services/printer-discovery.service';
 import { PrintJobService } from './services/print-job.service';
 import { NetworkDiscoveryService } from './discovery/network-discovery.service';
-import { MenuHereIntegrationService } from './services/menuhere-integration.service';
+// import { MenuHereIntegrationService } from './services/menuhere-integration.service';
 import { PrintingWebSocketGateway } from './gateways/printing-websocket.gateway';
 import { CreatePrinterDto } from './dto/create-printer.dto';
 import { UpdatePrinterDto } from './dto/update-printer.dto';
@@ -44,7 +44,7 @@ export class PrintingController {
     private readonly printerDiscoveryService: PrinterDiscoveryService,
     private readonly printJobService: PrintJobService,
     private readonly networkDiscoveryService: NetworkDiscoveryService,
-    private readonly menuHereService: MenuHereIntegrationService,
+    // private readonly menuHereService: MenuHereIntegrationService,
     private readonly printingWebSocketGateway: PrintingWebSocketGateway,
   ) {}
 
@@ -61,6 +61,55 @@ export class PrintingController {
     return this.printingService.findAllPrinters(companyId, branchId, userRole, {
       includeOffline: true
     });
+  }
+
+  // Public endpoint for getting printers (for testing/dashboard) - MUST come before printers/:id
+  @Public()
+  @Get('printers/public')
+  @ApiOperation({ summary: 'Public endpoint to get all printers (for testing)' })
+  @ApiResponse({ status: 200, description: 'Printers retrieved successfully' })
+  async getPublicPrinters(@Query('branchId') branchId?: string) {
+    try {
+      // For testing, return all printers for the specific branch or all if no branch specified
+      const targetBranchId = branchId || 'f97ceb38-c797-4d1c-9ff4-89d9f8da5235';
+      
+      const printers = await this.printingService.getAllPrinters(
+        undefined, // companyId
+        targetBranchId,
+        undefined, // limit
+        undefined, // offset
+        undefined  // status
+      );
+
+      return {
+        success: true,
+        printers,
+        count: printers.length,
+        branchId: targetBranchId
+      };
+    } catch (error) {
+      this.logger.error(`Public get printers error: ${error.message}`);
+      return {
+        success: false,
+        message: 'Failed to get printers: ' + error.message,
+        printers: [],
+        count: 0
+      };
+    }
+  }
+
+  // Simple test endpoint to debug authentication issues
+  @Public()
+  @Get('test-public')
+  @ApiOperation({ summary: 'Simple test endpoint without authentication' })
+  @ApiResponse({ status: 200, description: 'Test endpoint working' })
+  async testPublicEndpoint() {
+    return {
+      success: true,
+      message: 'Public endpoint is working!',
+      timestamp: new Date().toISOString(),
+      version: '1.0.1'
+    };
   }
 
   @Get('printers/:id')
@@ -114,13 +163,13 @@ export class PrintingController {
   }
 
   // Printer Discovery
+  @Public()
   @Post('discover')
-  @Roles('super_admin', 'company_owner', 'branch_manager')
   @ApiOperation({ summary: 'Discover printers on network' })
   @ApiResponse({ status: 200, description: 'Printer discovery completed' })
-  async discoverPrinters(@Body() discoveryDto: DiscoverPrintersDto, @Req() req: any) {
-    const companyId = req.user?.role === 'super_admin' ? discoveryDto.companyId : req.user?.companyId;
-    const branchId = req.user?.branchId;
+  async discoverPrinters(@Body() discoveryDto: DiscoverPrintersDto, @Req() req?: any) {
+    const companyId = req?.user?.role === 'super_admin' ? discoveryDto.companyId : req?.user?.companyId;
+    const branchId = req?.user?.branchId || discoveryDto.branchId;
     return this.printerDiscoveryService.discoverPrinters(companyId, branchId, discoveryDto.timeout || 10000);
   }
 
@@ -194,14 +243,15 @@ export class PrintingController {
   @ApiOperation({ summary: 'Get print service status including MenuHere' })
   @ApiResponse({ status: 200, description: 'Print service status retrieved' })
   async getServiceStatus(@Req() req?: any) {
-    const companyId = req.user?.companyId;
-    const branchId = req.user?.branchId;
+    const companyId = req?.user?.companyId;
+    const branchId = req?.user?.branchId;
     
     // Get basic service status
     const serviceStatus = await this.printingService.getServiceStatus(companyId, branchId);
     
     // Get MenuHere status
-    const menuHereStatus = await this.menuHereService.getConnectionStatus();
+    // const menuHereStatus = await this.menuHereService.getConnectionStatus();
+    const menuHereStatus = { connected: false, error: 'MenuHere service disabled' };
     
     return {
       ...serviceStatus,
@@ -280,10 +330,10 @@ export class PrintingController {
   }
 
   // Advanced Printer Discovery Endpoints
+  @Public()
   @Post('network-discovery')
   @HttpCode(HttpStatus.OK)
-  @Roles('super_admin', 'company_owner', 'branch_manager')
-  @ApiOperation({ summary: 'Discover network printers' })
+  @ApiOperation({ summary: 'Discover network printers (Public for debugging)' })
   @ApiResponse({ status: 200, description: 'Network printers discovered' })
   async discoverNetworkPrinters(@Body() options: {
     scanRange: string;
@@ -411,7 +461,8 @@ export class PrintingController {
       this.logger.log(`Registering device "${deviceName}" for branch: ${targetBranchId}`);
       
       // Check MenuHere connection status
-      const connectionStatus = await this.menuHereService.getConnectionStatus();
+      // const connectionStatus = await this.menuHereService.getConnectionStatus();
+      const connectionStatus = { connected: false, error: 'MenuHere service disabled' };
       this.logger.log(`MenuHere connection status:`, connectionStatus);
       
       // Device registration object
@@ -422,7 +473,7 @@ export class PrintingController {
         registeredAt: new Date().toISOString(),
         registeredBy: req.user?.email || req.user?.id || 'system',
         menuHereConnected: connectionStatus.connected,
-        menuHereVersion: connectionStatus.version || null
+        menuHereVersion: 'N/A'
       };
 
       const registeredPrinters = [];
@@ -432,7 +483,8 @@ export class PrintingController {
       if (connectionStatus.connected) {
         try {
           // Try to discover printers
-          const menuherePrinters = await this.menuHereService.discoverPrinters();
+          // const menuherePrinters = await this.menuHereService.discoverPrinters();
+          const menuherePrinters = [];
           printersFound = menuherePrinters.length;
           this.logger.log(`Discovered ${printersFound} printers from MenuHere`);
           
@@ -573,7 +625,8 @@ export class PrintingController {
       }
 
       // Test via MenuHere
-      const testResult = await this.menuHereService.testPrinter(printer.name);
+      // const testResult = await this.menuHereService.testPrinter(printer.name);
+      const testResult = { success: false, error: 'MenuHere service disabled' };
       
       // Update printer status based on test result
       await this.printingService.updatePrinterStatus(id, testResult.success ? 'online' : 'error');
@@ -716,40 +769,6 @@ export class PrintingController {
     }
   }
 
-  // Public endpoint for getting printers (for testing/dashboard)
-  @Get('printers/public')
-  @Public()
-  @ApiOperation({ summary: 'Public endpoint to get all printers (for testing)' })
-  @ApiResponse({ status: 200, description: 'Printers retrieved successfully' })
-  async getPublicPrinters(@Query('branchId') branchId?: string) {
-    try {
-      // For testing, return all printers for the specific branch or all if no branch specified
-      const targetBranchId = branchId || 'f97ceb38-c797-4d1c-9ff4-89d9f8da5235';
-      
-      const printers = await this.printingService.getAllPrinters(
-        undefined, // companyId
-        targetBranchId,
-        undefined, // limit
-        undefined, // offset
-        undefined  // status
-      );
-
-      return {
-        success: true,
-        printers,
-        count: printers.length,
-        branchId: targetBranchId
-      };
-    } catch (error) {
-      this.logger.error(`Public get printers error: ${error.message}`);
-      return {
-        success: false,
-        message: 'Failed to get printers: ' + error.message,
-        printers: [],
-        count: 0
-      };
-    }
-  }
 
   // License-Based Auto-Detection System
   @Post('license/validate')
@@ -869,19 +888,178 @@ export class PrintingController {
     }
   }
 
+  // Enhanced License Validation for POS Client
+  @Public()
+  @Post('license/validate-enhanced')
+  @ApiOperation({ summary: 'Enhanced Branch ID validation for POS client with session management' })
+  @ApiResponse({ status: 200, description: 'Enhanced license validation result' })
+  async validateLicenseEnhanced(@Body() validateDto: {
+    branchId: string;
+    deviceId?: string;
+    clientVersion?: string;
+    override?: boolean;
+    pin?: string;
+  }) {
+    try {
+      this.logger.log(`Enhanced license validation for Branch ID: ${validateDto.branchId}`);
+      
+      // Check if Branch ID exists in the database
+      const isValidBranch = await this.printingService.validateBranchExists(validateDto.branchId);
+      
+      if (!isValidBranch) {
+        return {
+          success: true,
+          valid: false,
+          sessionConflict: false,
+          canOverride: false,
+          message: 'Branch ID not found in system',
+          branchInfo: null
+        };
+      }
+      
+      // Check for active sessions
+      const sessionCheck = await this.printingService.checkActiveSession(
+        validateDto.branchId,
+        validateDto.deviceId
+      );
+      
+      // Handle PIN override for session conflicts
+      if (sessionCheck.hasConflict && validateDto.override && validateDto.pin === '0011') {
+        this.logger.log(`Session conflict override approved for Branch ID: ${validateDto.branchId}`);
+        await this.printingService.clearActiveSessions(validateDto.branchId);
+        sessionCheck.hasConflict = false;
+      }
+      
+      // Get branch information
+      const branchInfo = await this.printingService.getBranchInfo(validateDto.branchId);
+      
+      return {
+        success: true,
+        valid: isValidBranch,
+        sessionConflict: sessionCheck.hasConflict,
+        canOverride: sessionCheck.canOverride,
+        activeDevices: sessionCheck.activeDevices || 0,
+        message: isValidBranch ? 
+          (sessionCheck.hasConflict ? 'Branch valid but session conflict exists' : 'Branch ID validated successfully') :
+          'Branch ID not found',
+        branchInfo: isValidBranch ? {
+          id: branchInfo.id,
+          name: branchInfo.name,
+          companyName: branchInfo.company?.name || 'Unknown',
+          timezone: branchInfo.timezone || 'UTC',
+          currency: 'USD' // branchInfo.currency || 'USD' - currency field not in Branch model
+        } : null
+      };
+    } catch (error) {
+      this.logger.error(`Enhanced license validation failed: ${error.message}`, error.stack);
+      return {
+        success: false,
+        valid: false,
+        sessionConflict: false,
+        canOverride: false,
+        message: `Validation error: ${error.message}`,
+        branchInfo: null
+      };
+    }
+  }
+  
+  // Session Conflict Detection
+  @Public()
+  @Get('sessions/check/:branchId')
+  @ApiOperation({ summary: 'Check for active POS client sessions for a Branch ID' })
+  @ApiResponse({ status: 200, description: 'Session check completed' })
+  async checkSessions(@Param('branchId') branchId: string, @Query('deviceId') deviceId?: string) {
+    try {
+      this.logger.log(`Session check for Branch ID: ${branchId}, Device ID: ${deviceId}`);
+      
+      const sessionInfo = await this.printingService.checkActiveSession(branchId, deviceId);
+      
+      return {
+        success: true,
+        branchId,
+        hasConflict: sessionInfo.hasConflict,
+        canOverride: sessionInfo.canOverride,
+        activeDevices: sessionInfo.activeDevices || 0,
+        currentDevice: deviceId,
+        message: sessionInfo.hasConflict ? 
+          'Active session detected - use PIN 0011 to override' : 
+          'No session conflicts'
+      };
+    } catch (error) {
+      this.logger.error(`Session check failed: ${error.message}`, error.stack);
+      return {
+        success: false,
+        hasConflict: false,
+        canOverride: false,
+        message: `Session check error: ${error.message}`
+      };
+    }
+  }
+  
+  // Register Session for POS Client
+  @Public()
+  @Post('sessions/register')
+  @ApiOperation({ summary: 'Register active POS client session' })
+  @ApiResponse({ status: 200, description: 'Session registered successfully' })
+  async registerSession(@Body() sessionData: {
+    branchId: string;
+    deviceId: string;
+    clientVersion?: string;
+    deviceName?: string;
+  }) {
+    try {
+      this.logger.log(`Registering session for Branch ID: ${sessionData.branchId}, Device: ${sessionData.deviceId}`);
+      
+      const session = await this.printingService.registerClientSession({
+        branchId: sessionData.branchId,
+        deviceId: sessionData.deviceId,
+        clientVersion: sessionData.clientVersion || 'unknown',
+        deviceName: sessionData.deviceName || 'POS Client',
+        lastActivity: new Date()
+      });
+      
+      return {
+        success: true,
+        sessionId: session.id,
+        message: 'Session registered successfully'
+      };
+    } catch (error) {
+      this.logger.error(`Session registration failed: ${error.message}`, error.stack);
+      return {
+        success: false,
+        message: `Session registration error: ${error.message}`
+      };
+    }
+  }
+
   @Public()
   @Get('menuhere/status')
   @ApiOperation({ summary: 'Get MenuHere service status without authentication' })
   @ApiResponse({ status: 200, description: 'MenuHere service status retrieved' })
   async getMenuHereStatus() {
     try {
-      const status = await this.menuHereService.getConnectionStatus();
+      // const status = await this.menuHereService.getConnectionStatus();
+      const status = { connected: false, error: 'MenuHere service disabled' };
+      
+      // Get REAL printers from database via PrintingService
+      const realPrinters = await this.printingService.getAllPrinters(
+        undefined, // companyId - get all companies
+        'f97ceb38-c797-4d1c-9ff4-89d9f8da5235', // branchId - default branch
+        undefined, // limit
+        undefined, // offset
+        undefined  // status
+      );
+      
+      this.logger.log(`[MENUHERE-STATUS] Found ${realPrinters.length} real printers from database`);
+      
       return {
         success: true,
-        menuHere: status
+        menuHere: status,
+        printers: realPrinters,
+        count: realPrinters.length
       };
     } catch (error) {
-      console.error('MenuHere status error:', error);
+      this.logger.error('[MENUHERE-STATUS] Error getting real printers:', error);
       return {
         success: false,
         menuHere: {
@@ -889,7 +1067,47 @@ export class PrintingController {
           version: 'Unknown',
           printers: 0,
           error: error.message
-        }
+        },
+        printers: [],
+        count: 0
+      };
+    }
+  }
+
+  @Public()
+  @Get('menuhere/printers')
+  @ApiOperation({ summary: 'Get printers via MenuHere without authentication' })
+  @ApiResponse({ status: 200, description: 'Printers retrieved successfully' })
+  async getMenuHerePrinters(@Query('branchId') branchId?: string) {
+    try {
+      this.logger.log(`[PUBLIC-MENUHERE-PRINTERS] Getting printers for branch: ${branchId}`);
+      
+      // For testing, return all printers for the specific branch or all if no branch specified
+      const targetBranchId = branchId || 'f97ceb38-c797-4d1c-9ff4-89d9f8da5235';
+      
+      const printers = await this.printingService.getAllPrinters(
+        undefined, // companyId
+        targetBranchId,
+        undefined, // limit
+        undefined, // offset
+        undefined  // status
+      );
+
+      this.logger.log(`[PUBLIC-MENUHERE-PRINTERS] Found ${printers.length} printers`);
+
+      return {
+        success: true,
+        printers,
+        count: printers.length,
+        branchId: targetBranchId
+      };
+    } catch (error) {
+      this.logger.error(`[PUBLIC-MENUHERE-PRINTERS] Error: ${error.message}`);
+      return {
+        success: false,
+        message: 'Failed to get printers: ' + error.message,
+        printers: [],
+        count: 0
       };
     }
   }
@@ -918,6 +1136,61 @@ export class PrintingController {
         success: false,
         error: error.message,
         message: `Failed to register printer ${printerData.name}`
+      };
+    }
+  }
+
+  @Post('printers/heartbeat')
+  @Public()
+  @ApiOperation({ summary: 'Receive heartbeat from PrinterMaster to update printer status' })
+  @ApiResponse({ status: 200, description: 'Heartbeat received successfully' })
+  async receiveHeartbeat(@Body() heartbeatData: any) {
+    try {
+      this.logger.log(`[HEARTBEAT] Received from branch: ${heartbeatData.branchId}`);
+      
+      const { branchId, printers: printerUpdates, timestamp } = heartbeatData;
+      
+      // Update printer statuses based on heartbeat
+      for (const printerUpdate of printerUpdates) {
+        await this.prisma.printer.updateMany({
+          where: {
+            name: printerUpdate.name,
+            branchId: branchId
+          },
+          data: {
+            status: printerUpdate.status,
+            lastSeen: new Date(printerUpdate.lastSeen)
+          }
+        });
+      }
+
+      // Mark printers as offline if they weren't included in the heartbeat
+      // (This handles the case where PrinterMaster stops but printers remain in DB as online)
+      const printerNames = printerUpdates.map(p => p.name);
+      if (printerNames.length > 0) {
+        await this.prisma.printer.updateMany({
+          where: {
+            branchId: branchId,
+            name: { notIn: printerNames },
+            status: { not: 'offline' }
+          },
+          data: {
+            status: 'offline',
+            lastSeen: new Date()
+          }
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Heartbeat received successfully',
+        updated: printerUpdates.length
+      };
+    } catch (error) {
+      this.logger.error(`[HEARTBEAT] Failed to process heartbeat:`, error);
+      return {
+        success: false,
+        error: error.message
       };
     }
   }

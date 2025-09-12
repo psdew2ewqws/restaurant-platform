@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CompanyGuard } from '../../common/guards/company.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -51,20 +52,20 @@ export class MenuController {
     return this.menuService.getPaginatedProducts(filters, userCompanyId, req.user.role);
   }
 
-  // Get all categories for filters
+  // Get all categories for filters (public endpoint for menu display)
   @Get('categories')
-  @Roles('super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier')
-  async getCategories(@Request() req) {
-    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
-    return this.menuService.getCategories(userCompanyId, req.user.role);
+  @Public()
+  async getCategories(@Query('companyId') companyId?: string) {
+    // For public access, use companyId from query parameter or get all categories
+    return this.menuService.getCategories(companyId, 'public');
   }
 
-  // Get available tags for filters
+  // Get available tags for filters (public endpoint for menu display)
   @Get('tags')
-  @Roles('super_admin', 'company_owner', 'branch_manager', 'call_center', 'cashier')
-  async getTags(@Request() req) {
-    const userCompanyId = req.user.role === 'super_admin' ? undefined : req.user.companyId;
-    return this.menuService.getTags(userCompanyId);
+  @Public()
+  async getTags(@Query('companyId') companyId?: string) {
+    // For public access, use companyId from query parameter or get all tags
+    return this.menuService.getTags(companyId);
   }
 
   // Get product statistics
